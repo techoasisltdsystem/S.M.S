@@ -1,24 +1,21 @@
-import Navbar from "@/components/landing/Navbar";
-import HeroSection from "@/components/landing/HeroSection";
-import LogoCloud from "@/components/landing/LogoCloud";
-import FeaturesSection from "@/components/landing/FeaturesSection";
-import StatsSection from "@/components/landing/StatsSection";
-import TestimonialsSection from "@/components/landing/TestimonialsSection";
-import PricingSection from "@/components/landing/PricingSection";
-import CTASection from "@/components/landing/CTASection";
-import FooterSection from "@/components/landing/FooterSection";
+import SiteNavbar from "@/components/site/SiteNavbar";
+import { Hero, Preview, Features, Modules, Roles, HowItWorks, Pricing, Faq, Contact, Footer } from "@/components/site/SiteSections";
 
 const LandingPage = () => (
   <div className="min-h-screen bg-background">
-    <Navbar />
-    <HeroSection />
-    <LogoCloud />
-    <FeaturesSection />
-    <StatsSection />
-    <TestimonialsSection />
-    <PricingSection />
-    <CTASection />
-    <FooterSection />
+    <SiteNavbar />
+    <main>
+      <Hero />
+      <Preview />
+      <Features />
+      <Modules />
+      <Roles />
+      <HowItWorks />
+      <Pricing />
+      <Faq />
+      <Contact />
+    </main>
+    <Footer />
   </div>
 );
 
