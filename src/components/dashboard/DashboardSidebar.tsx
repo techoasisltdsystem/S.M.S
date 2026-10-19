@@ -1,4 +1,4 @@
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, UserRole, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import { useNavigate, useLocation } from "react-router-dom";
 import Logo from "@/components/ui/logo";
@@ -15,12 +15,14 @@ interface NavItem {
   icon: React.ElementType;
   path: string;
   roles: UserRole[];
+  /** When set, also hidden from people without this permission. */
+  permission?: string;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", icon: LayoutDashboard, path: "/dashboard", roles: ["admin", "teacher", "student", "parent"] },
   { label: "Students", icon: GraduationCap, path: "/students", roles: ["admin", "teacher"] },
-  { label: "User Management", icon: Users, path: "/user-management", roles: ["admin"] },
+  { label: "User Management", icon: Users, path: "/user-management", roles: ["admin"], permission: "users.manage" },
   { label: "Classes", icon: BookOpen, path: "/classes", roles: ["admin", "teacher"] },
   { label: "Timetable", icon: Calendar, path: "/timetable", roles: ["admin", "teacher", "student", "parent"] },
   { label: "Exams & Grades", icon: ClipboardList, path: "/exams", roles: ["admin", "teacher", "student", "parent"] },
@@ -30,14 +32,14 @@ const NAV_ITEMS: NavItem[] = [
   { label: "Library", icon: Library, path: "/library", roles: ["admin", "teacher", "student"] },
   { label: "Notifications", icon: Bell, path: "/notifications", roles: ["admin", "teacher", "student", "parent"] },
   { label: "Analytics", icon: BarChart3, path: "/analytics", roles: ["admin"] },
-  { label: "Audit Logs", icon: FileText, path: "/audit-logs", roles: ["admin"] },
-  { label: "School Setup", icon: Building2, path: "/setup", roles: ["admin"] },
-  { label: "Settings", icon: Settings, path: "/settings", roles: ["admin"] },
+  { label: "Audit Logs", icon: FileText, path: "/audit-logs", roles: ["admin"], permission: "audit.view" },
+  { label: "School Setup", icon: Building2, path: "/setup", roles: ["admin"], permission: "school.settings.manage" },
+  { label: "Settings", icon: Settings, path: "/settings", roles: ["admin"], permission: "school.settings.manage" },
 ];
 
 
 const DashboardSidebar = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, can } = useAuth();
   const { schoolConfig } = useSchool();
   const navigate = useNavigate();
   const location = useLocation();
@@ -45,7 +47,9 @@ const DashboardSidebar = () => {
 
   if (!user) return null;
 
-  const filteredItems = NAV_ITEMS.filter((item) => item.roles.includes(user.role));
+  const filteredItems = NAV_ITEMS.filter(
+    (item) => item.roles.includes(user.role) && (!item.permission || can(item.permission)),
+  );
 
   return (
     <aside
@@ -119,11 +123,11 @@ const DashboardSidebar = () => {
           {!collapsed && (
             <div className="flex-1 min-w-0">
               <p className="text-sm font-medium text-sidebar-primary-foreground truncate">{user.name}</p>
-              <p className="text-xs text-sidebar-foreground/60 capitalize">{user.role}</p>
+              <p className="text-xs text-sidebar-foreground/60">{MEMBER_ROLE_LABEL[user.memberRole]}</p>
             </div>
           )}
           {!collapsed && (
-            <button onClick={logout} className="text-sidebar-foreground/60 hover:text-destructive p-1" title="Sign out">
+            <button onClick={() => void logout()} className="text-sidebar-foreground/60 hover:text-destructive p-1" title="Sign out">
               <LogOut className="w-4 h-4" />
             </button>
           )}

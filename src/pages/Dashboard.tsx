@@ -4,7 +4,7 @@ import {
   GraduationCap, Users, UserCheck, DollarSign, Settings, ClipboardList, Calendar, BookOpen,
   FileText, Building2, Bell, History, PieChart, AlertTriangle, ShieldCheck,
 } from "lucide-react";
-import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { useAuth, UserRole, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import Welcome from "@/components/kit/Welcome";
@@ -77,7 +77,8 @@ const when = (iso: string) =>
 const Skeleton = ({ className }: { className: string }) => <div className={`animate-pulse rounded-md bg-muted ${className}`} />;
 
 const AdminSections = () => {
-  const overview = useAdminOverview(true);
+  const { user } = useAuth();
+  const overview = useAdminOverview(user?.schoolId, true);
   const { data, isLoading, isError, error, refetch } = overview;
 
   if (isError) {
@@ -182,8 +183,8 @@ const NotConnected = ({ role }: { role: UserRole }) => (
 );
 
 const Dashboard = () => {
-  const { user } = useAuth();
-  const { schoolConfig, isSetupComplete, loading: schoolLoading } = useSchool();
+  const { user, can } = useAuth();
+  const { isSetupComplete, loading: schoolLoading } = useSchool();
   const navigate = useNavigate();
 
   if (!user) return null;
@@ -192,10 +193,10 @@ const Dashboard = () => {
     <DashboardLayout>
       <Welcome
         name={user.name}
-        sub={`${ROLE_LABEL[user.role]}${schoolConfig?.school_name ? ` · ${schoolConfig.school_name}` : ""}`}
+        sub={`${MEMBER_ROLE_LABEL[user.memberRole]} · ${user.schoolName}${user.schoolSuspended ? " (suspended: read-only)" : ""}`}
       />
 
-      {user.role === "admin" && !isSetupComplete && !schoolLoading && (
+      {can("school.settings.manage") && !isSetupComplete && !schoolLoading && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -216,7 +217,7 @@ const Dashboard = () => {
         </motion.div>
       )}
 
-      {user.role === "admin" ? <AdminSections /> : <NotConnected role={user.role} />}
+      {can("users.manage") ? <AdminSections /> : <NotConnected role={user.role} />}
 
       <Panel title="Quick access" icon={Calendar}>
         <QuickLinks links={LINKS[user.role]} />

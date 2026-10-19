@@ -1,8 +1,10 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
+import React, { createContext, useCallback, useContext, useState, useEffect, ReactNode } from 'react'
 import { db } from '@/lib/db'
+import { useAuth } from '@/contexts/AuthContext'
 
 export interface SchoolConfig {
   id: string
+  school_id: string
   school_name: string
   school_address: string
   phone_number: string
@@ -28,29 +30,32 @@ interface SchoolContextType {
 
 const SchoolContext = createContext<SchoolContextType | undefined>(undefined)
 
+// Settings of the school the signed-in user is working in. Signed-out
+// visitors get none: the database only shows a school's settings to its members.
 export const SchoolProvider = ({ children }: { children: ReactNode }) => {
+  const { user } = useAuth()
+  const schoolId = user?.schoolId ?? null
   const [schoolConfig, setSchoolConfig] = useState<SchoolConfig | null>(null)
   const [loading, setLoading] = useState(true)
 
-  const fetchConfig = async () => {
+  const fetchConfig = useCallback(async () => {
+    if (!schoolId) {
+      setSchoolConfig(null)
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
-      const { data } = await db
-        .from('school_config')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (data) setSchoolConfig(data as SchoolConfig)
-      else setSchoolConfig(null)
+      const { data } = await db.from('school_config').select('*').eq('school_id', schoolId).maybeSingle()
+      setSchoolConfig((data as SchoolConfig | null) ?? null)
     } catch {
-      // Supabase not configured yet — graceful fallback
+      setSchoolConfig(null)
     } finally {
       setLoading(false)
     }
-  }
+  }, [schoolId])
 
-  useEffect(() => { fetchConfig() }, [])
+  useEffect(() => { fetchConfig() }, [fetchConfig])
 
   return (
     <SchoolContext.Provider

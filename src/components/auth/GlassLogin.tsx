@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { AuthError, passwordResetAvailable, requestPasswordReset } from "@/lib/db";
 import { useSchool } from "@/contexts/SchoolContext";
 import Logo from "@/components/ui/logo";
 import { LOGIN_ROLES, GLASS_THEMES, GlassRole } from "./loginRoles";
@@ -23,13 +24,13 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [help, setHelp] = useState(false);
+  const [help, setHelp] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ id?: string; password?: string; form?: string }>({});
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
-    if (!id.trim()) next.id = "Enter your email or username.";
+    if (!id.trim()) next.id = "Enter your email address.";
     if (!password) next.password = "Enter your password.";
     setErrors(next);
     if (next.id || next.password) return;
@@ -37,10 +38,24 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
     setLoading(true);
     try {
       await login(id.trim(), password, role);
-    } catch {
-      setErrors({ form: "We could not sign you in. Check your details and try again." });
+    } catch (err) {
+      setErrors({ form: err instanceof AuthError ? err.message : "We could not sign you in. Check your details and try again." });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    if (help) return setHelp(null);
+    if (!passwordResetAvailable) {
+      return setHelp("Password reset by email is not available on this server yet. Ask your school administrator to send you a new invitation.");
+    }
+    if (!id.trim()) return setHelp("Enter your email above, then choose Forgot password again.");
+    try {
+      await requestPasswordReset(id.trim());
+      setHelp("If that email has an account, a reset link is on its way. Check your inbox.");
+    } catch (err) {
+      setHelp(err instanceof Error ? err.message : "We could not send the reset email.");
     }
   };
 
@@ -119,15 +134,15 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
 
         <div className="mb-4">
           <label htmlFor="glass-id" className="sr-only">
-            Email or username
+            Email address
           </label>
           <div className="relative">
             <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden />
             <input
               id="glass-id"
-              type="text"
-              autoComplete="username"
-              placeholder="Email or username"
+              type="email"
+              autoComplete="email"
+              placeholder="Email address"
               value={id}
               onChange={(e) => setId(e.target.value)}
               aria-invalid={!!errors.id}
@@ -179,8 +194,8 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
         <div className="mb-5 text-right">
           <button
             type="button"
-            onClick={() => setHelp((h) => !h)}
-            aria-expanded={help}
+            onClick={forgotPassword}
+            aria-expanded={!!help}
             className={`text-sm underline-offset-2 hover:text-white hover:underline focus:outline-none focus:ring-2 focus:ring-white/70 ${t.muted}`}
           >
             Forgot password?
@@ -188,7 +203,7 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
         </div>
         {help && (
           <p className="mb-5 rounded-md bg-white/15 px-3 py-2 text-sm text-white">
-            Password recovery by email is not set up yet. Please contact your school administrator{contact ? ` (${contact})` : ""} to reset your password.
+            {help}
           </p>
         )}
 
@@ -205,8 +220,6 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
             "LOGIN"
           )}
         </button>
-
-        <p className={`mt-4 text-center text-xs ${t.muted}`}>Demo mode: sign-in is not verified against a password yet.</p>
         {!onRoleChange && (
           <p className={`mt-3 text-center text-sm ${t.muted}`}>
             Teacher, student or parent?{" "}

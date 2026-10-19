@@ -19,10 +19,13 @@ export type Database = {
           action: Database["public"]["Enums"]["audit_action"]
           actor_id: string | null
           actor_name: string | null
+          actor_role: string | null
+          actor_user_id: string | null
           created_at: string
           details: Json | null
           id: string
           ip_address: string | null
+          school_id: string | null
           target_id: string | null
           target_name: string | null
           target_type: string
@@ -32,10 +35,13 @@ export type Database = {
           action: Database["public"]["Enums"]["audit_action"]
           actor_id?: string | null
           actor_name?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
           created_at?: string
           details?: Json | null
           id?: string
           ip_address?: string | null
+          school_id?: string | null
           target_id?: string | null
           target_name?: string | null
           target_type: string
@@ -45,24 +51,58 @@ export type Database = {
           action?: Database["public"]["Enums"]["audit_action"]
           actor_id?: string | null
           actor_name?: string | null
+          actor_role?: string | null
+          actor_user_id?: string | null
           created_at?: string
           details?: Json | null
           id?: string
           ip_address?: string | null
+          school_id?: string | null
           target_id?: string | null
           target_name?: string | null
           target_type?: string
           user_agent?: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "audit_logs_actor_id_fkey"
-            columns: ["actor_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      campuses: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          name: string
+          school_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          school_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          school_id?: string
+        }
+        Relationships: []
+      }
+      platform_admins: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -76,8 +116,10 @@ export type Database = {
           id: string
           notes: string | null
           phone: string | null
+          school_id: string
           status: Database["public"]["Enums"]["user_status"]
           updated_at: string
+          user_id: string | null
         }
         Insert: {
           address?: string | null
@@ -90,8 +132,10 @@ export type Database = {
           id?: string
           notes?: string | null
           phone?: string | null
+          school_id: string
           status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
+          user_id?: string | null
         }
         Update: {
           address?: string | null
@@ -104,8 +148,25 @@ export type Database = {
           id?: string
           notes?: string | null
           phone?: string | null
+          school_id?: string
           status?: Database["public"]["Enums"]["user_status"]
           updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      role_permissions: {
+        Row: {
+          permission: string
+          role: Database["public"]["Enums"]["member_role"]
+        }
+        Insert: {
+          permission: string
+          role: Database["public"]["Enums"]["member_role"]
+        }
+        Update: {
+          permission?: string
+          role?: Database["public"]["Enums"]["member_role"]
         }
         Relationships: []
       }
@@ -123,6 +184,7 @@ export type Database = {
           phone_number: string | null
           primary_color: string | null
           school_address: string | null
+          school_id: string
           school_name: string
           school_type: string | null
           setup_completed: boolean | null
@@ -142,6 +204,7 @@ export type Database = {
           phone_number?: string | null
           primary_color?: string | null
           school_address?: string | null
+          school_id: string
           school_name?: string
           school_type?: string | null
           setup_completed?: boolean | null
@@ -161,6 +224,7 @@ export type Database = {
           phone_number?: string | null
           primary_color?: string | null
           school_address?: string | null
+          school_id?: string
           school_name?: string
           school_type?: string | null
           setup_completed?: boolean | null
@@ -169,75 +233,158 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
+      school_invitations: {
         Row: {
-          assigned_at: string
-          assigned_by: string | null
+          accepted_at: string | null
+          created_at: string
+          created_by: string | null
+          email: string
+          expires_at: string
           id: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          membership_id: string
+          revoked_at: string | null
+          school_id: string
+          token_hash: string
         }
         Insert: {
-          assigned_at?: string
-          assigned_by?: string | null
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email: string
+          expires_at: string
           id?: string
-          role: Database["public"]["Enums"]["app_role"]
-          user_id: string
+          membership_id: string
+          revoked_at?: string | null
+          school_id: string
+          token_hash: string
         }
         Update: {
-          assigned_at?: string
-          assigned_by?: string | null
+          accepted_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string
+          expires_at?: string
           id?: string
-          role?: Database["public"]["Enums"]["app_role"]
-          user_id?: string
+          membership_id?: string
+          revoked_at?: string | null
+          school_id?: string
+          token_hash?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "user_roles_assigned_by_fkey"
-            columns: ["assigned_by"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "user_roles_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "profiles"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
+      }
+      school_memberships: {
+        Row: {
+          campus_id: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          profile_id: string
+          role: Database["public"]["Enums"]["member_role"]
+          school_id: string
+          status: Database["public"]["Enums"]["membership_status"]
+          updated_at: string
+        }
+        Insert: {
+          campus_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          profile_id: string
+          role: Database["public"]["Enums"]["member_role"]
+          school_id: string
+          status?: Database["public"]["Enums"]["membership_status"]
+          updated_at?: string
+        }
+        Update: {
+          campus_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          profile_id?: string
+          role?: Database["public"]["Enums"]["member_role"]
+          school_id?: string
+          status?: Database["public"]["Enums"]["membership_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schools: {
+        Row: {
+          country: string
+          created_at: string
+          currency: string
+          id: string
+          name: string
+          slug: string
+          status: Database["public"]["Enums"]["school_status"]
+          timezone: string
+          updated_at: string
+        }
+        Insert: {
+          country?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          name: string
+          slug: string
+          status?: Database["public"]["Enums"]["school_status"]
+          timezone?: string
+          updated_at?: string
+        }
+        Update: {
+          country?: string
+          created_at?: string
+          currency?: string
+          id?: string
+          name?: string
+          slug?: string
+          status?: Database["public"]["Enums"]["school_status"]
+          timezone?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
+      accept_invitation: { Args: { _token: string }; Returns: Json }
+      invite_member: {
+        Args: { _school: string; _full_name: string; _email: string; _role: Database["public"]["Enums"]["member_role"] }
+        Returns: Json
       }
+      has_permission: { Args: { _school: string; _permission: string }; Returns: boolean }
+      is_member: { Args: { _school: string }; Returns: boolean }
+      is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
+      log_session_event: { Args: { _school: string; _action: string }; Returns: undefined }
+      my_memberships: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          school_id: string
+          school_name: string
+          school_status: Database["public"]["Enums"]["school_status"]
+          profile_id: string
+          full_name: string
+          email: string | null
+          avatar_url: string | null
+          role: Database["public"]["Enums"]["member_role"]
+          permissions: string[]
+        }[]
+      }
+      local_login: { Args: { _email: string; _password: string }; Returns: Json }
+      local_logout: { Args: Record<PropertyKey, never>; Returns: undefined }
+      local_accept_invitation: { Args: { _token: string; _password: string }; Returns: Json }
     }
     Enums: {
       app_role: "admin" | "teacher" | "student" | "parent"
-      audit_action:
-        | "user_created"
-        | "user_updated"
-        | "user_deleted"
-        | "user_banned"
-        | "user_suspended"
-        | "user_activated"
-        | "role_changed"
-        | "config_updated"
-        | "login"
-        | "logout"
-        | "password_reset"
-        | "permission_changed"
+      audit_action: "user_created" | "user_updated" | "user_deleted" | "user_banned" | "user_suspended" | "user_activated" | "role_changed" | "config_updated" | "login" | "logout" | "password_reset" | "permission_changed" | "school_created" | "school_updated" | "member_invited" | "invitation_accepted"
+      member_role: "school_admin" | "teacher" | "student" | "parent" | "finance_officer" | "auditor"
+      membership_status: "invited" | "active" | "suspended"
+      school_status: "active" | "suspended"
       user_status: "active" | "suspended" | "banned" | "inactive"
     }
+
     CompositeTypes: {
       [_ in never]: never
     }
@@ -365,20 +512,10 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "teacher", "student", "parent"],
-      audit_action: [
-        "user_created",
-        "user_updated",
-        "user_deleted",
-        "user_banned",
-        "user_suspended",
-        "user_activated",
-        "role_changed",
-        "config_updated",
-        "login",
-        "logout",
-        "password_reset",
-        "permission_changed",
-      ],
+      audit_action: ["user_created", "user_updated", "user_deleted", "user_banned", "user_suspended", "user_activated", "role_changed", "config_updated", "login", "logout", "password_reset", "permission_changed", "school_created", "school_updated", "member_invited", "invitation_accepted"],
+      member_role: ["school_admin", "teacher", "student", "parent", "finance_officer", "auditor"],
+      membership_status: ["invited", "active", "suspended"],
+      school_status: ["active", "suspended"],
       user_status: ["active", "suspended", "banned", "inactive"],
     },
   },

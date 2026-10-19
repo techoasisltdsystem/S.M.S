@@ -3,10 +3,9 @@ import { motion } from 'framer-motion'
 import { useNavigate } from 'react-router-dom'
 import {
   Settings, Shield, BookOpen, Bell, Database, Users,
-  ChevronRight, Lock, Key, Mail, MessageSquare, Save, Loader2,
+  ChevronRight, Lock, Key, Mail, MessageSquare,
   Building2, GraduationCap, DollarSign, Clock, RefreshCw
 } from 'lucide-react'
-import { db } from '@/lib/db'
 import { useSchool } from '@/contexts/SchoolContext'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
@@ -98,7 +97,6 @@ const AdminSettingsPage = () => {
   const navigate = useNavigate()
   const { toast } = useToast()
   const { schoolConfig, refetch: refetchSchool } = useSchool()
-  const [saving, setSaving] = useState(false)
   const [activeTab, setActiveTab] = useState('general')
 
   // Settings state
@@ -122,28 +120,6 @@ const AdminSettingsPage = () => {
     dataRetentionDays: '365',
   })
 
-  const handleSave = async () => {
-    setSaving(true)
-    try {
-      // Log the settings change
-      await db.from('audit_logs').insert({
-        action: 'config_updated',
-        target_type: 'settings',
-        target_name: 'Admin Settings',
-        details: { section: activeTab },
-      })
-
-      // In a real app, you'd save these to a settings table
-      await new Promise(resolve => setTimeout(resolve, 500)) // Simulate save
-
-      toast({ title: 'Settings saved', description: 'Your changes have been applied.' })
-    } catch {
-      toast({ title: 'Error', description: 'Failed to save settings', variant: 'destructive' })
-    } finally {
-      setSaving(false)
-    }
-  }
-
   return (
     <DashboardLayout>
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
@@ -153,10 +129,10 @@ const AdminSettingsPage = () => {
             <h1 className="font-heading text-2xl font-bold text-foreground">Administrator Settings</h1>
             <p className="text-sm text-muted-foreground mt-1">Configure system settings, security, and preferences</p>
           </div>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Save Changes
-          </Button>
+          <p className="max-w-sm rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground" role="note">
+            The security, communication and system options below are not saved yet. School details, calendar
+            and grading are saved in School Setup.
+          </p>
         </div>
 
         {/* Quick Actions */}

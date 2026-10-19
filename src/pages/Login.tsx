@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
+import { AuthError, passwordResetAvailable, requestPasswordReset } from "@/lib/db";
 import { motion } from "framer-motion";
 import { useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
@@ -20,13 +21,13 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [help, setHelp] = useState(false);
+  const [help, setHelp] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ id?: string; password?: string; form?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const next: typeof errors = {};
-    if (!email.trim()) next.id = "Enter your email or username.";
+    if (!email.trim()) next.id = "Enter your email address.";
     if (!password) next.password = "Enter your password.";
     setErrors(next);
     if (next.id || next.password) return;
@@ -34,10 +35,24 @@ const Login = () => {
     setLoading(true);
     try {
       await login(email.trim(), password, role);
-    } catch {
-      setErrors({ form: "We could not sign you in. Check your details and try again." });
+    } catch (err) {
+      setErrors({ form: err instanceof AuthError ? err.message : "We could not sign you in. Check your details and try again." });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const forgotPassword = async () => {
+    if (help) return setHelp(null);
+    if (!passwordResetAvailable) {
+      return setHelp("Password reset by email is not available on this server yet. Ask your school administrator to send you a new invitation.");
+    }
+    if (!email.trim()) return setHelp("Enter your email above, then choose Forgot password again.");
+    try {
+      await requestPasswordReset(email.trim());
+      setHelp("If that email has an account, a reset link is on its way. Check your inbox.");
+    } catch (err) {
+      setHelp(err instanceof Error ? err.message : "We could not send the reset email.");
     }
   };
 
@@ -129,14 +144,14 @@ const Login = () => {
             )}
 
             <div className="mb-4">
-              <label htmlFor="email" className="sr-only">Email or username</label>
+              <label htmlFor="email" className="sr-only">Email address</label>
               <div className="relative">
                 <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
                 <input
                   id="email"
-                  type="text"
-                  autoComplete="username"
-                  placeholder="Email or username"
+                  type="email"
+                  autoComplete="email"
+                  placeholder="Email address"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   aria-invalid={!!errors.id}
@@ -178,8 +193,8 @@ const Login = () => {
             <div className="mb-5 text-right">
               <button
                 type="button"
-                onClick={() => setHelp((h) => !h)}
-                aria-expanded={help}
+                onClick={forgotPassword}
+                aria-expanded={!!help}
                 className="text-sm text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 Forgot password?
@@ -187,7 +202,7 @@ const Login = () => {
             </div>
             {help && (
               <p className="mb-5 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
-                Password recovery by email is not set up yet. Please contact your school administrator to reset your password.
+                {help}
               </p>
             )}
 
@@ -205,10 +220,6 @@ const Login = () => {
               )}
             </button>
           </form>
-
-          <p className="mt-4 text-center text-xs text-muted-foreground">
-            Demo mode: sign-in is not verified against a password yet.
-          </p>
         </motion.div>
       </div>
     </div>
