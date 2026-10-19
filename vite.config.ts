@@ -11,6 +11,20 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
+    proxy: {
+      // Local database mode (VITE_DB_PROVIDER=local): forward the REST calls
+      // made by src/lib/db.ts to PostgREST running in front of local Postgres.
+      "/rest/v1": {
+        target: "http://127.0.0.1:3001",
+        rewrite: (p) => p.replace(/^\/rest\/v1/, ""),
+        configure: (proxy) => {
+          proxy.on("proxyReq", (req) => {
+            req.removeHeader("authorization");
+            req.removeHeader("apikey");
+          });
+        },
+      },
+    },
   },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {

@@ -6,7 +6,7 @@ import {
   ChevronRight, Lock, Key, Mail, MessageSquare, Save, Loader2,
   Building2, GraduationCap, DollarSign, Clock, RefreshCw
 } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
+import { db } from '@/lib/db'
 import { useSchool } from '@/contexts/SchoolContext'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import { Button } from '@/components/ui/button'
@@ -126,7 +126,7 @@ const AdminSettingsPage = () => {
     setSaving(true)
     try {
       // Log the settings change
-      await supabase.from('audit_logs').insert({
+      await db.from('audit_logs').insert({
         action: 'config_updated',
         target_type: 'settings',
         target_name: 'Admin Settings',

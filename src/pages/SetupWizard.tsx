@@ -6,7 +6,7 @@ import {
   MapPin, BookOpen, DollarSign, Palette, Rocket,
   Loader2, X, Camera,
 } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
+import { db, uploadSchoolAsset } from '@/lib/db'
 import { useSchool } from '@/contexts/SchoolContext'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -616,15 +616,6 @@ const SetupWizard = () => {
     if (currentStep > 1) setCurrentStep((s) => s - 1)
   }
 
-  const uploadFile = async (file: File, name: string): Promise<string> => {
-    const ext = file.name.split('.').pop()
-    const path = `${name}-${Date.now()}.${ext}`
-    const { error } = await supabase.storage.from('school-assets').upload(path, file, { upsert: true })
-    if (error) throw error
-    const { data: urlData } = supabase.storage.from('school-assets').getPublicUrl(path)
-    return urlData.publicUrl
-  }
-
   const handleSave = async () => {
     if (!data.schoolName.trim()) {
       toast({ title: 'School name is required', variant: 'destructive' })
@@ -637,8 +628,8 @@ const SetupWizard = () => {
       let logoUrl = data.logoPreview
       let bannerUrl = data.bannerPreview
 
-      if (data.logoFile) logoUrl = await uploadFile(data.logoFile, 'logo')
-      if (data.bannerFile) bannerUrl = await uploadFile(data.bannerFile, 'banner')
+      if (data.logoFile) logoUrl = await uploadSchoolAsset(data.logoFile, 'logo')
+      if (data.bannerFile) bannerUrl = await uploadSchoolAsset(data.bannerFile, 'banner')
 
       const payload = {
         school_name: data.schoolName.trim(),
@@ -657,10 +648,10 @@ const SetupWizard = () => {
       }
 
       if (schoolConfig?.id) {
-        const { error } = await supabase.from('school_config').update(payload).eq('id', schoolConfig.id)
+        const { error } = await db.from('school_config').update(payload).eq('id', schoolConfig.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('school_config').insert(payload)
+        const { error } = await db.from('school_config').insert(payload)
         if (error) throw error
       }
 

@@ -4,7 +4,7 @@ import {
   Search, Plus, Download, Eye, MoreHorizontal, Users, UserCheck, UserX,
   Ban, UserMinus, Pencil, Trash2, Shield, GraduationCap, UserCog, Loader2
 } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
+import { db } from '@/lib/db'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import StatCard from '@/components/dashboard/StatCard'
 import { Button } from '@/components/ui/button'
@@ -90,7 +90,7 @@ const UserForm = ({ user, defaultRole = 'student', onSave, onCancel }: UserFormP
     try {
       if (user) {
         // Update existing user
-        const { error: profileError } = await supabase
+        const { error: profileError } = await db
           .from('profiles')
           .update({
             full_name: form.full_name.trim(),
@@ -107,11 +107,11 @@ const UserForm = ({ user, defaultRole = 'student', onSave, onCancel }: UserFormP
 
         // Update role if changed
         if (form.role !== user.roles?.[0]) {
-          await supabase.from('user_roles').delete().eq('user_id', user.id)
-          await supabase.from('user_roles').insert({ user_id: user.id, role: form.role })
+          await db.from('user_roles').delete().eq('user_id', user.id)
+          await db.from('user_roles').insert({ user_id: user.id, role: form.role })
           
           // Log the action
-          await supabase.from('audit_logs').insert({
+          await db.from('audit_logs').insert({
             action: 'role_changed',
             target_type: 'user',
             target_id: user.id,
@@ -120,7 +120,7 @@ const UserForm = ({ user, defaultRole = 'student', onSave, onCancel }: UserFormP
           })
         }
 
-        await supabase.from('audit_logs').insert({
+        await db.from('audit_logs').insert({
           action: 'user_updated',
           target_type: 'user',
           target_id: user.id,
@@ -130,7 +130,7 @@ const UserForm = ({ user, defaultRole = 'student', onSave, onCancel }: UserFormP
         toast({ title: 'User updated successfully' })
       } else {
         // Create new user
-        const { data: newProfile, error: profileError } = await supabase
+        const { data: newProfile, error: profileError } = await db
           .from('profiles')
           .insert({
             full_name: form.full_name.trim(),
@@ -148,10 +148,10 @@ const UserForm = ({ user, defaultRole = 'student', onSave, onCancel }: UserFormP
         if (profileError) throw profileError
 
         // Assign role
-        await supabase.from('user_roles').insert({ user_id: newProfile.id, role: form.role })
+        await db.from('user_roles').insert({ user_id: newProfile.id, role: form.role })
 
         // Log the action
-        await supabase.from('audit_logs').insert({
+        await db.from('audit_logs').insert({
           action: 'user_created',
           target_type: 'user',
           target_id: newProfile.id,
@@ -416,12 +416,12 @@ const UserManagementPage = () => {
   const fetchUsers = useCallback(async () => {
     setLoading(true)
     try {
-      const { data: profiles } = await supabase
+      const { data: profiles } = await db
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false })
 
-      const { data: roles } = await supabase.from('user_roles').select('*')
+      const { data: roles } = await db.from('user_roles').select('*')
 
       const usersWithRoles: UserWithRole[] = (profiles || []).map((p) => ({
         ...p,
@@ -447,7 +447,7 @@ const UserManagementPage = () => {
 
   const handleStatusChange = async (user: UserWithRole, newStatus: UserStatus) => {
     try {
-      await supabase.from('profiles').update({ status: newStatus }).eq('id', user.id)
+      await db.from('profiles').update({ status: newStatus }).eq('id', user.id)
 
       const actionMap: Record<UserStatus, string> = {
         active: 'user_activated',
@@ -456,7 +456,7 @@ const UserManagementPage = () => {
         inactive: 'user_updated',
       }
 
-      await supabase.from('audit_logs').insert({
+      await db.from('audit_logs').insert({
         action: actionMap[newStatus] as 'user_banned' | 'user_suspended' | 'user_activated' | 'user_updated',
         target_type: 'user',
         target_id: user.id,
@@ -474,14 +474,14 @@ const UserManagementPage = () => {
   const handleDelete = async () => {
     if (!deletingUser) return
     try {
-      await supabase.from('audit_logs').insert({
+      await db.from('audit_logs').insert({
         action: 'user_deleted',
         target_type: 'user',
         target_id: deletingUser.id,
         target_name: deletingUser.full_name,
       })
 
-      await supabase.from('profiles').delete().eq('id', deletingUser.id)
+      await db.from('profiles').delete().eq('id', deletingUser.id)
 
       toast({ title: 'User deleted', description: `${deletingUser.full_name} has been removed.` })
       setDeletingUser(null)

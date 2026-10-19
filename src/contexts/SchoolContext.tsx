@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { supabase } from '@/integrations/supabase/client'
+import { db } from '@/lib/db'
 
 export interface SchoolConfig {
   id: string
@@ -35,7 +35,7 @@ export const SchoolProvider = ({ children }: { children: ReactNode }) => {
   const fetchConfig = async () => {
     setLoading(true)
     try {
-      const { data } = await supabase
+      const { data } = await db
         .from('school_config')
         .select('*')
         .order('created_at', { ascending: false })

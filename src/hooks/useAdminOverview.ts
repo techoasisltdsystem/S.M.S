@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { db } from "@/lib/db";
 
 export interface AdminOverview {
   accounts: number;
@@ -16,10 +16,10 @@ export const useAdminOverview = (enabled: boolean) =>
     staleTime: 60_000,
     queryFn: async (): Promise<AdminOverview> => {
       const [profiles, active, roles, audit] = await Promise.all([
-        supabase.from("profiles").select("id", { count: "exact", head: true }),
-        supabase.from("profiles").select("id", { count: "exact", head: true }).eq("status", "active"),
-        supabase.from("user_roles").select("role"),
-        supabase
+        db.from("profiles").select("id", { count: "exact", head: true }),
+        db.from("profiles").select("id", { count: "exact", head: true }).eq("status", "active"),
+        db.from("user_roles").select("role"),
+        db
           .from("audit_logs")
           .select("id, action, actor_name, target_name, created_at")
           .order("created_at", { ascending: false })

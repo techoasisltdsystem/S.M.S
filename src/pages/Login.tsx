@@ -5,26 +5,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
-import { GraduationCap, ShieldCheck, BookOpen, Users, Eye, EyeOff } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
 import schoolHero from "@/assets/school-hero.jpg";
 import Logo from "@/components/ui/logo";
-import AdminLogin from "./AdminLogin";
-
-const ROLES: { value: UserRole; label: string; icon: React.ElementType; desc: string }[] = [
-  { value: "admin", label: "Administrator", icon: ShieldCheck, desc: "Full system access" },
-  { value: "teacher", label: "Teacher", icon: BookOpen, desc: "Classes & grading" },
-  { value: "student", label: "Student", icon: GraduationCap, desc: "Portal access" },
-  { value: "parent", label: "Parent", icon: Users, desc: "Monitor progress" },
-];
+import GlassLogin from "@/components/auth/GlassLogin";
+import { LOGIN_ROLES as ROLES } from "@/components/auth/loginRoles";
 
 const Login = () => {
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<UserRole>("admin");
-  // Student keeps this screen; the other roles switch to their own themed panel.
-  const [panelMode, setPanelMode] = useState(false);
+  const [params] = useSearchParams();
+  // /login?role=teacher opens straight on that role; students are the default.
+  const [role, setRole] = useState<UserRole>(() => {
+    const r = params.get("role");
+    return ROLES.some((x) => x.value === r) ? (r as UserRole) : "student";
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -38,11 +35,9 @@ const Login = () => {
     }
   };
 
-  const pick = (r: UserRole) => { setRole(r); setPanelMode(r !== "student"); };
-
-  if (panelMode && role !== "student") {
-    return <AdminLogin key={role} role={role} onSwitchRole={pick} />;
-  }
+  // Administrator, teacher and parent each get their own full-screen sign-in;
+  // the student view keeps the original split layout below.
+  if (role !== "student") return <GlassLogin role={role} onRoleChange={setRole} />;
 
   return (
     <div className="flex min-h-screen">
@@ -105,7 +100,7 @@ const Login = () => {
                     ? "border-primary bg-accent shadow-elevated"
                     : "border-transparent bg-muted/50 hover:bg-muted"
                 }`}
-                onClick={() => pick(r.value)}
+                onClick={() => setRole(r.value)}
               >
                 <CardContent className="flex items-center gap-3 p-3">
                   <r.icon className={`w-5 h-5 shrink-0 ${role === r.value ? "text-primary" : "text-muted-foreground"}`} />

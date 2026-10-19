@@ -6,7 +6,7 @@ import {
   UserPlus, UserMinus, Ban, Key, LogIn, LogOut, AlertTriangle,
   ChevronLeft, ChevronRight, Eye, Loader2
 } from 'lucide-react'
-import { supabase } from '@/integrations/supabase/client'
+import { db } from '@/lib/db'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import StatCard from '@/components/dashboard/StatCard'
 import { Button } from '@/components/ui/button'
@@ -57,7 +57,7 @@ const AuditLogsPage = () => {
   const fetchLogs = useCallback(async () => {
     setLoading(true)
     try {
-      let query = supabase
+      let query = db
         .from('audit_logs')
         .select('*')
         .order('created_at', { ascending: false })
