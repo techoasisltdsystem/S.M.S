@@ -54,3 +54,12 @@ function Start-Pg {
   if ($LASTEXITCODE -ne 0) { throw "Postgres failed to start; see $PgLog" }
   Write-Host "Postgres started on localhost:$PgPort"
 }
+
+# Returns $Name from .env.local, generating and saving a random value first if it is missing.
+function Get-OrAddEnvSecret([string]$Name, [int]$Length = 48) {
+  $vars = Read-EnvFile
+  if ($vars[$Name]) { return $vars[$Name] }
+  $value = New-Secret $Length
+  Add-Content -Path $EnvFile -Value "$Name=$value" -Encoding ascii
+  return $value
+}

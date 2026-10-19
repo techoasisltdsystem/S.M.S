@@ -7,10 +7,12 @@ export interface Segment {
 interface DonutProps {
   segments: Segment[];
   centerLabel?: string;
+  /** Text in the middle; defaults to the total. */
+  center?: string;
   size?: number;
 }
 
-const Donut = ({ segments, centerLabel, size = 132 }: DonutProps) => {
+const Donut = ({ segments, centerLabel, center, size = 132 }: DonutProps) => {
   const total = segments.reduce((s, x) => s + x.value, 0);
   const stroke = 16;
   const r = (size - stroke) / 2;
@@ -41,7 +43,7 @@ const Donut = ({ segments, centerLabel, size = 132 }: DonutProps) => {
             return el;
           })}
         <text x="50%" y="50%" textAnchor="middle" dominantBaseline="central" className="fill-foreground font-heading text-xl font-bold">
-          {total}
+          {center ?? total}
         </text>
       </svg>
       <ul className="space-y-1.5 text-sm">

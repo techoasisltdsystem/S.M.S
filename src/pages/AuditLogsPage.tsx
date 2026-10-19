@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Eye, Loader2
 } from 'lucide-react'
 import { db } from '@/lib/db'
+import { useAuth } from '@/contexts/AuthContext'
 import DashboardLayout from '@/components/dashboard/DashboardLayout'
 import StatCard from '@/components/dashboard/StatCard'
 import { Button } from '@/components/ui/button'
@@ -37,12 +38,25 @@ const ACTION_META: Record<AuditAction, { label: string; icon: React.ElementType;
   logout: { label: 'Logout', icon: LogOut, color: 'text-muted-foreground' },
   password_reset: { label: 'Password Reset', icon: Key, color: 'text-warning' },
   permission_changed: { label: 'Permission Changed', icon: Shield, color: 'text-primary' },
+  school_created: { label: 'School Created', icon: Settings, color: 'text-success' },
+  school_updated: { label: 'School Updated', icon: Settings, color: 'text-info' },
+  member_invited: { label: 'Person Invited', icon: UserPlus, color: 'text-success' },
+  invitation_accepted: { label: 'Invitation Accepted', icon: LogIn, color: 'text-success' },
+  student_enrolled: { label: 'Student Enrolled', icon: UserPlus, color: 'text-success' },
+  enrollment_changed: { label: 'Enrolment Changed', icon: User, color: 'text-info' },
+  guardian_linked: { label: 'Guardian Link Changed', icon: Shield, color: 'text-primary' },
+  attendance_corrected: { label: 'Attendance Corrected', icon: AlertTriangle, color: 'text-warning' },
+  results_submitted: { label: 'Results Submitted', icon: Eye, color: 'text-info' },
+  results_approved: { label: 'Results Approved', icon: Shield, color: 'text-success' },
+  results_published: { label: 'Results Published', icon: Eye, color: 'text-success' },
+  results_reopened: { label: 'Results Reopened', icon: AlertTriangle, color: 'text-warning' },
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 const AuditLogsPage = () => {
   const { toast } = useToast()
+  const schoolId = useAuth().user!.schoolId
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
@@ -60,6 +74,7 @@ const AuditLogsPage = () => {
       let query = db
         .from('audit_logs')
         .select('*')
+        .eq('school_id', schoolId)
         .order('created_at', { ascending: false })
 
       // Date filter
@@ -91,7 +106,7 @@ const AuditLogsPage = () => {
     } finally {
       setLoading(false)
     }
-  }, [dateFilter, actionFilter, toast])
+  }, [dateFilter, actionFilter, toast, schoolId])
 
   useEffect(() => { fetchLogs() }, [fetchLogs])
 

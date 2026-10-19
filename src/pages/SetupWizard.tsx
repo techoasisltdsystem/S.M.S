@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils'
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type SchoolType = 'primary' | 'junior_high' | 'senior_high' | 'college' | 'university' | 'mixed'
-type AcademicYearFormat = 'semester' | 'trimester' | 'quarter' | 'annual'
+type AcademicYearFormat = 'term' | 'semester' | 'trimester' | 'quarter' | 'annual'
 type GradingSystem = 'percentage' | 'gpa_4' | 'gpa_5' | 'letter' | 'custom'
 
 interface WizardData {
@@ -63,8 +63,9 @@ const SCHOOL_TYPES: { value: SchoolType; label: string; emoji: string; desc: str
 ]
 
 const ACADEMIC_FORMATS: { value: AcademicYearFormat; label: string; desc: string }[] = [
-  { value: 'semester', label: 'Semester', desc: '2 terms per year' },
-  { value: 'trimester', label: 'Trimester', desc: '3 terms per year' },
+  { value: 'term', label: 'Terms', desc: '3 terms per year (Ghana basic and SHS)' },
+  { value: 'semester', label: 'Semester', desc: '2 semesters per year' },
+  { value: 'trimester', label: 'Trimester', desc: '3 trimesters per year' },
   { value: 'quarter', label: 'Quarter', desc: '4 quarters per year' },
   { value: 'annual', label: 'Annual', desc: '1 full year' },
 ]
@@ -541,9 +542,9 @@ const DEFAULT_DATA: WizardData = {
   phoneNumber: '',
   email: '',
   country: '',
-  academicYearFormat: 'semester',
+  academicYearFormat: 'term',
   gradingSystem: 'percentage',
-  currency: 'USD',
+  currency: 'GHS',
   logoFile: null,
   logoPreview: '',
   bannerFile: null,
@@ -567,9 +568,9 @@ const SetupWizard = () => {
         phoneNumber: schoolConfig.phone_number || '',
         email: schoolConfig.email || '',
         country: schoolConfig.country || '',
-        academicYearFormat: (schoolConfig.academic_year_format as AcademicYearFormat) || 'semester',
+        academicYearFormat: (schoolConfig.academic_year_format as AcademicYearFormat) || 'term',
         gradingSystem: (schoolConfig.grading_system as GradingSystem) || 'percentage',
-        currency: schoolConfig.currency || 'USD',
+        currency: schoolConfig.currency || 'GHS',
         logoFile: null,
         logoPreview: schoolConfig.logo_url || '',
         bannerFile: null,
@@ -628,8 +629,9 @@ const SetupWizard = () => {
       let logoUrl = data.logoPreview
       let bannerUrl = data.bannerPreview
 
-      if (data.logoFile) logoUrl = await uploadSchoolAsset(data.logoFile, 'logo')
-      if (data.bannerFile) bannerUrl = await uploadSchoolAsset(data.bannerFile, 'banner')
+      if (!schoolConfig) throw new Error('Your school record could not be loaded. Sign out and in again.')
+      if (data.logoFile) logoUrl = await uploadSchoolAsset(data.logoFile, schoolConfig.school_id, 'logo')
+      if (data.bannerFile) bannerUrl = await uploadSchoolAsset(data.bannerFile, schoolConfig.school_id, 'banner')
 
       const payload = {
         school_name: data.schoolName.trim(),
@@ -647,13 +649,15 @@ const SetupWizard = () => {
         setup_completed: true,
       }
 
-      if (schoolConfig?.id) {
-        const { error } = await db.from('school_config').update(payload).eq('id', schoolConfig.id)
-        if (error) throw error
-      } else {
-        const { error } = await db.from('school_config').insert(payload)
-        if (error) throw error
-      }
+      // Each school's settings row is created with the school; the database
+      // only lets this school's administrators change it.
+      const { data: saved, error } = await db
+        .from('school_config')
+        .update(payload)
+        .eq('school_id', schoolConfig.school_id)
+        .select('id')
+      if (error) throw error
+      if (!saved?.length) throw new Error('You do not have permission to change these settings.')
 
       await refetch()
       toast({

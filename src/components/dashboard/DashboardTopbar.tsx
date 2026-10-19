@@ -1,50 +1,65 @@
-import { useAuth } from "@/contexts/AuthContext";
-import { Bell, Search, Menu } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Link } from "react-router-dom";
+import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
+import { useSchool } from "@/contexts/SchoolContext";
+import { Bell, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 
 interface DashboardTopbarProps {
   onMenuToggle?: () => void;
 }
 
 const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
-  const { user } = useAuth();
-
-  const greeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  };
+  const { user, memberships, switchMembership, isPlatform } = useAuth();
+  const { schoolConfig } = useSchool();
+  const keyOf = (m: { schoolId: string; memberRole: string }) => `${m.schoolId}:${m.memberRole}`;
 
   return (
-    <header className="h-16 border-b border-border bg-card flex items-center justify-between px-4 sm:px-6">
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle}>
-          <Menu className="w-5 h-5" />
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
+        <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle} aria-label="Open menu">
+          <Menu className="h-5 w-5" />
         </Button>
-        <div>
-          <h2 className="font-heading text-lg font-semibold text-foreground">
-            {greeting()}, {user?.name.split(" ")[0]}
-          </h2>
-          <p className="text-sm text-muted-foreground hidden sm:block">
-            {new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+        <div className="min-w-0">
+          <p className="truncate font-heading text-sm font-semibold text-foreground">
+            {isPlatform ? "Tech Oasis platform" : schoolConfig?.school_name || user?.schoolName}
+          </p>
+          <p className="hidden truncate text-xs text-muted-foreground sm:block">
+            {isPlatform
+              ? "Schools and access"
+              : [schoolConfig?.tagline, user?.schoolSuspended ? "Suspended: read-only" : ""].filter(Boolean).join(" · ") || "Main campus"}
           </p>
         </div>
+        {user && memberships.length > 1 && (
+          <select
+            aria-label="Switch school or role"
+            className="h-9 max-w-[14rem] rounded-md border border-input bg-background px-2 text-sm"
+            value={keyOf(user as { schoolId: string; memberRole: string })}
+            onChange={(e) => {
+              const m = memberships.find((x) => keyOf(x) === e.target.value);
+              if (m) switchMembership(m);
+            }}
+          >
+            {memberships.map((m) => (
+              <option key={keyOf(m)} value={keyOf(m)}>
+                {m.schoolName} · {MEMBER_ROLE_LABEL[m.memberRole]}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="hidden md:flex relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input placeholder="Search..." className="pl-9 w-64 h-9 bg-muted/50" />
+      <div className="flex items-center gap-2">
+        {!isPlatform && (
+          <Button variant="ghost" size="icon" asChild>
+            <Link to="/calendar" aria-label="Notices and events" title="Notices and events">
+              <Bell className="h-5 w-5" />
+            </Link>
+          </Button>
+        )}
+        <div className="hidden text-right sm:block">
+          <p className="text-sm font-medium leading-tight text-foreground">{user?.name}</p>
+          <p className="text-xs text-muted-foreground">{user ? MEMBER_ROLE_LABEL[user.memberRole] : ""}</p>
         </div>
-        <Button variant="ghost" size="icon" className="relative">
-          <Bell className="w-5 h-5" />
-          <Badge className="absolute -top-0.5 -right-0.5 h-4 w-4 p-0 flex items-center justify-center text-[10px]">
-            3
-          </Badge>
-        </Button>
       </div>
     </header>
   );

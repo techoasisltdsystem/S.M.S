@@ -47,9 +47,19 @@ DO `$`$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'web_anon') THEN
     CREATE ROLE web_anon NOLOGIN;
   END IF;
+  -- Same request roles as Supabase: signed-out (anon) and signed-in (authenticated).
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    CREATE ROLE anon NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    CREATE ROLE authenticated NOLOGIN;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'service_role') THEN
+    CREATE ROLE service_role NOLOGIN;
+  END IF;
 END `$`$;
 ALTER ROLE techoasis_app WITH LOGIN PASSWORD '$appPw';
-GRANT web_anon TO techoasis_app;
+GRANT web_anon, anon, authenticated TO techoasis_app;
 "@
 # Feed SQL on stdin so the password never appears in a process command line.
 $roleSql | & "$PgBin\psql.exe" -X -q -v ON_ERROR_STOP=1 -d $adminUrl | Out-Null
