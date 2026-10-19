@@ -3,10 +3,10 @@
 // so the backing database can be swapped by changing only this file.
 //
 // VITE_DB_PROVIDER selects the backend:
-//   "supabase" (default) — hosted Supabase project: Supabase Auth for sign-in
-//   "local"              — local Postgres served by PostgREST, proxied by Vite
+//   "local" (default)    — local Postgres served by PostgREST, proxied by Vite
 //                          at /rest/v1; sign-in is checked in the database by
 //                          scripts/local-db/local-auth.sql
+//   "supabase"           — hosted Supabase project: Supabase Auth for sign-in
 //
 // Either way the browser only holds a signed session token. Which school a
 // user belongs to, their role and their permissions are decided by the
@@ -16,8 +16,9 @@ import type { Database } from '@/integrations/supabase/types'
 
 export type DbProvider = 'supabase' | 'local'
 
+// The laptop database is the default. Set VITE_DB_PROVIDER=supabase only if a hosted project is added later.
 export const dbProvider: DbProvider =
-  import.meta.env.VITE_DB_PROVIDER === 'local' ? 'local' : 'supabase'
+  import.meta.env.VITE_DB_PROVIDER === 'supabase' ? 'supabase' : 'local'
 
 const LOCAL_SESSION_KEY = 'tosms.local.session'
 
