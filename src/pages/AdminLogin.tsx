@@ -2,12 +2,19 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, User, ShieldCheck } from "lucide-react";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
 import Logo from "@/components/ui/logo";
 import bg from "@/assets/admin-login-bg.webp";
 
-const AdminLogin = () => {
+const OTHER_ROLES: { value: UserRole; label: string }[] = [
+  { value: "teacher", label: "Teacher" },
+  { value: "student", label: "Student" },
+  { value: "parent", label: "Parent" },
+];
+
+// onSwitchRole is passed when this panel is shown inside the main sign-in page.
+const AdminLogin = ({ onSwitchRole }: { onSwitchRole?: (role: UserRole) => void }) => {
   const { login } = useAuth();
   const { schoolConfig } = useSchool();
   const [id, setId] = useState("");
@@ -48,7 +55,7 @@ const AdminLogin = () => {
         <p className="mb-1 flex items-center gap-2 font-medium text-white">
           <ShieldCheck className="h-4 w-4" aria-hidden /> Restricted area
         </p>
-        <p>Administrator access only. Other roles sign in from the main sign-in page.</p>
+        <p>{onSwitchRole ? "Administrator access only. Teachers, students and parents can switch role below the form." : "Administrator access only. Other roles sign in from the main sign-in page."}</p>
         {contact && <p className="mt-3 text-blue-200">{contact}</p>}
       </div>
 
@@ -171,12 +178,30 @@ const AdminLogin = () => {
         <p className="mt-4 text-center text-xs text-blue-100">
           Demo mode: sign-in is not verified against a password yet.
         </p>
-        <p className="mt-3 text-center text-sm text-blue-100">
-          Teacher, student or parent?{" "}
-          <Link to="/login" className="font-medium text-white underline underline-offset-2">
-            Use the main sign in
-          </Link>
-        </p>
+        {onSwitchRole ? (
+          <div className="mt-4">
+            <p className="mb-2 text-center text-sm text-blue-100">Not an administrator?</p>
+            <div className="grid grid-cols-3 gap-2">
+              {OTHER_ROLES.map((r) => (
+                <button
+                  key={r.value}
+                  type="button"
+                  onClick={() => onSwitchRole(r.value)}
+                  className="rounded-md border border-white/30 bg-white/10 px-2 py-2 text-sm font-medium text-white transition-colors hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-sky-300"
+                >
+                  {r.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-3 text-center text-sm text-blue-100">
+            Teacher, student or parent?{" "}
+            <Link to="/login" className="font-medium text-white underline underline-offset-2">
+              Use the main sign in
+            </Link>
+          </p>
+        )}
       </motion.form>
     </div>
   );

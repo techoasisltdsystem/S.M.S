@@ -9,6 +9,7 @@ import { Link } from "react-router-dom";
 import { GraduationCap, ShieldCheck, BookOpen, Users, Eye, EyeOff } from "lucide-react";
 import schoolHero from "@/assets/school-hero.jpg";
 import Logo from "@/components/ui/logo";
+import AdminLogin from "./AdminLogin";
 
 const ROLES: { value: UserRole; label: string; icon: React.ElementType; desc: string }[] = [
   { value: "admin", label: "Administrator", icon: ShieldCheck, desc: "Full system access" },
@@ -22,6 +23,7 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("admin");
+  const [adminMode, setAdminMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -34,6 +36,10 @@ const Login = () => {
       setLoading(false);
     }
   };
+
+  if (adminMode && role === "admin") {
+    return <AdminLogin onSwitchRole={(r) => { setRole(r); setAdminMode(false); }} />;
+  }
 
   return (
     <div className="flex min-h-screen">
@@ -96,7 +102,7 @@ const Login = () => {
                     ? "border-primary bg-accent shadow-elevated"
                     : "border-transparent bg-muted/50 hover:bg-muted"
                 }`}
-                onClick={() => setRole(r.value)}
+                onClick={() => { setRole(r.value); setAdminMode(r.value === "admin"); }}
               >
                 <CardContent className="flex items-center gap-3 p-3">
                   <r.icon className={`w-5 h-5 shrink-0 ${role === r.value ? "text-primary" : "text-muted-foreground"}`} />
