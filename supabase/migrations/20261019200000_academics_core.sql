@@ -908,6 +908,36 @@ BEGIN
   );
 END $$;
 
+-- A student's average over published results and position in their class.
+-- Classmates' scores stay hidden; only the position is returned.
+CREATE OR REPLACE FUNCTION public.student_standing(_student UUID)
+RETURNS JSONB LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
+DECLARE
+  cls UUID;
+  res JSONB;
+BEGIN
+  IF NOT public.can_see_student(_student) THEN
+    RAISE EXCEPTION 'you cannot view this student' USING ERRCODE = '42501';
+  END IF;
+  SELECT e.class_id INTO cls FROM public.enrollments e
+   WHERE e.student_id = _student AND e.status = 'active' ORDER BY e.enrolled_on DESC LIMIT 1;
+  IF cls IS NULL THEN RETURN jsonb_build_object('average', NULL, 'rank', NULL, 'class_size', 0); END IF;
+  WITH avgs AS (
+    SELECT e.student_id, avg(m.score / a.max_score * 100) AS average
+    FROM public.enrollments e
+    LEFT JOIN public.assessments a ON a.class_id = e.class_id AND a.status = 'published'
+    LEFT JOIN public.marks m ON m.assessment_id = a.id AND m.student_id = e.student_id AND m.score IS NOT NULL
+    WHERE e.class_id = cls AND e.status = 'active'
+    GROUP BY e.student_id
+  ), ranked AS (
+    SELECT student_id, average, CASE WHEN average IS NULL THEN NULL ELSE rank() OVER (ORDER BY average DESC NULLS LAST) END AS pos
+    FROM avgs
+  )
+  SELECT jsonb_build_object('average', round(r.average, 1), 'rank', r.pos, 'class_size', (SELECT count(*) FROM avgs))
+    INTO res FROM ranked r WHERE r.student_id = _student;
+  RETURN res;
+END $$;
+
 -- ---------------------------------------------------------------------------
 -- Platform (Super Admin) console. Counts only: platform staff manage schools
 -- and their access, they do not read pupils' records.
@@ -1019,7 +1049,7 @@ REVOKE EXECUTE ON FUNCTION
   public.enroll_student(UUID, UUID), public.end_enrollment(UUID, enrollment_status),
   public.link_guardian(UUID, UUID, TEXT), public.set_guardian_link_status(UUID, guardian_link_status),
   public.save_attendance(UUID, DATE, JSONB, TEXT), public.move_assessment(UUID, assessment_status, TEXT),
-  public.school_directory(UUID), public.school_overview(UUID),
+  public.school_directory(UUID), public.school_overview(UUID), public.student_standing(UUID),
   public.platform_overview(), public.platform_schools(),
   public.set_school_status(UUID, school_status, TEXT),
   public.platform_create_school(TEXT, TEXT, TEXT, TEXT)
@@ -1032,7 +1062,7 @@ GRANT EXECUTE ON FUNCTION
   public.enroll_student(UUID, UUID), public.end_enrollment(UUID, enrollment_status),
   public.link_guardian(UUID, UUID, TEXT), public.set_guardian_link_status(UUID, guardian_link_status),
   public.save_attendance(UUID, DATE, JSONB, TEXT), public.move_assessment(UUID, assessment_status, TEXT),
-  public.school_directory(UUID), public.school_overview(UUID),
+  public.school_directory(UUID), public.school_overview(UUID), public.student_standing(UUID),
   public.platform_overview(), public.platform_schools(),
   public.set_school_status(UUID, school_status, TEXT),
   public.platform_create_school(TEXT, TEXT, TEXT, TEXT)

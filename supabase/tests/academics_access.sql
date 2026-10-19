@@ -229,6 +229,10 @@ DO $$ BEGIN
 
   PERFORM pg_temp.act_as('student-ama@test.invalid');
   PERFORM pg_temp.ok((SELECT score FROM public.marks) = 42, 'the student sees their mark once published');
+  PERFORM pg_temp.ok((public.student_standing(pg_temp.id('student-ama')) ->> 'average')::numeric = 84
+    AND (public.student_standing(pg_temp.id('student-ama')) ->> 'rank')::int = 1, 'the student sees their average and class position');
+  PERFORM pg_temp.ok(pg_temp.fails($q$SELECT public.student_standing(pg_temp.id('student-kofi'))$q$),
+    'a student cannot look up a classmate''s standing');
   PERFORM pg_temp.act_as('parent-ama@test.invalid');
   PERFORM pg_temp.ok((SELECT score FROM public.marks) = 42, 'the verified parent sees the published mark');
   PERFORM pg_temp.ok(pg_temp.count('SELECT 1 FROM public.attendance_records') = 1, 'the parent sees the child''s attendance');
