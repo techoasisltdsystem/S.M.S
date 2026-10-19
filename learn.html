@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Learning | Tech Oasis School</title>
+    <meta name="theme-color" content="#0A1F1A">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/brand/tech-oasis-app-icon.svg">
+    <link rel="apple-touch-icon" href="/brand/tech-oasis-favicon-180.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/tw.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/tos.css">
+</head>
+<body class="bg-ivory text-slate-800 font-sans antialiased">
+    <div id="previewBar" class="hidden bg-gold text-ink text-sm"></div>
+    <header class="h-16 bg-ink text-white flex items-center gap-3 sm:gap-4 px-3 sm:px-5 sticky top-0 z-40">
+        <button id="sideToggle" class="lg:hidden w-10 h-10 rounded-full hover:bg-white/10" aria-label="Show course contents"><i class="fa-solid fa-list-ul"></i></button>
+        <a href="index.html" class="shrink-0" aria-label="Tech Oasis School home" id="homeMark"></a>
+        <div class="w-px h-8 bg-white/15 hidden sm:block"></div>
+        <a id="courseTitle" href="#" class="font-semibold truncate hover:text-gold min-w-0"></a>
+        <div class="ml-auto flex items-center gap-3 sm:gap-4 shrink-0">
+            <div class="flex items-center gap-2" id="progressWrap" title="Course progress">
+                <svg width="36" height="36" viewBox="0 0 36 36" class="-rotate-90" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="rgba(255,255,255,.15)" stroke-width="3"/><circle id="ring" cx="18" cy="18" r="15" fill="none" stroke="#C4A649" stroke-width="3" stroke-linecap="round" stroke-dasharray="94.25" stroke-dashoffset="94.25" style="transition: stroke-dashoffset .6s"/></svg>
+                <span class="text-sm hidden sm:block"><b id="progressPct">0%</b> <span class="text-white/60">complete</span></span>
+            </div>
+            <button id="certBtn" class="hidden btn btn-gold btn-sm"><i class="fa-solid fa-award"></i><span class="hidden sm:inline">Certificate</span></button>
+            <a href="index.html#my-learning" class="hidden md:inline-flex btn btn-sm bg-white/10 hover:bg-white/20 text-white">My Learning</a>
+        </div>
+    </header>
+
+    <div class="flex">
+        <aside id="sidebar" class="fixed lg:sticky top-16 left-0 z-30 w-[86%] max-w-[340px] lg:w-[340px] h-[calc(100vh-4rem)] bg-white border-r border-slate-200/70 overflow-y-auto thin-scroll -translate-x-full lg:translate-x-0 transition-transform shrink-0"></aside>
+        <div id="sideScrim" class="hidden fixed inset-0 top-16 bg-ink/40 z-20 lg:hidden"></div>
+        <main id="lesson" class="flex-1 min-w-0"></main>
+    </div>
+
+    <script src="assets/js/core/ui.js"></script>
+    <script src="assets/js/core/crypto.js"></script>
+    <script src="assets/js/core/db.js"></script>
+    <script src="assets/js/core/seed.js"></script>
+    <script src="assets/js/core/lms.js"></script>
+    <script src="assets/js/core/video.js"></script>
+    <script src="assets/js/core/auth.js"></script>
+    <script src="assets/js/core/engage.js"></script>
+    <script src="assets/js/pages/learn.js"></script>
+</body>
+</html>

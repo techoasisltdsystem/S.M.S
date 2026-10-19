@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin CMS | Tech Oasis School</title>
+    <meta name="robots" content="noindex">
+    <meta name="theme-color" content="#0A1F1A">
+    <link rel="icon" href="/favicon.ico" sizes="any">
+    <link rel="icon" type="image/svg+xml" href="/brand/tech-oasis-app-icon.svg">
+    <link rel="apple-touch-icon" href="/brand/tech-oasis-favicon-180.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="assets/js/tw.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <link rel="stylesheet" href="assets/css/tos.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.15.2/Sortable.min.js"></script>
+</head>
+<body class="bg-[#F5F3EE] text-slate-800 font-sans antialiased">
+
+    <!-- Login: full-screen school photo, deep blue wash, glass panel (reference image 3). Students and staff keep their own sign-in pages. -->
+    <div id="login" class="hidden adm-login">
+        <img src="assets/img/laptop-blue.webp" alt="" class="adm-login-bg" fetchpriority="high" decoding="async">
+        <div class="adm-login-wash" aria-hidden="true"></div>
+        <div class="relative z-10 min-h-screen w-full max-w-[1200px] mx-auto px-4 sm:px-8 py-8 flex flex-col lg:flex-row lg:items-center gap-10">
+            <div class="hidden lg:flex flex-col justify-between self-stretch flex-1 text-white py-4">
+                <a href="index.html" class="brand-logo" data-theme="dark" data-size="44" aria-label="Tech Oasis School home"></a>
+                <div class="max-w-md"><span class="adm-pill"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i>Restricted area</span>
+                    <p class="text-4xl font-semibold leading-tight mt-5 tracking-tight">School Control Center</p>
+                    <p class="text-white/75 mt-4">Manage courses, learners, staff, grading, certificates and payments from one place.</p></div>
+                <p id="adminContact" class="text-xs text-white/70 leading-relaxed"></p>
+            </div>
+            <form id="loginForm" class="adm-panel w-full max-w-[460px] mx-auto lg:mx-0 my-auto" novalidate>
+                <div class="text-center"><span class="brand-logo" data-theme="dark" data-size="46"></span></div>
+                <h1 class="text-[28px] font-semibold text-white mt-8 leading-tight">Administrator sign in</h1>
+                <p class="text-sm text-white/75 mt-1">Sign in to the Tech Oasis School Control Center.</p>
+                <div class="mt-7 space-y-4">
+                    <div><label class="sr-only" for="adminId">Admin email</label>
+                        <div class="adm-field"><i class="fa-regular fa-user" aria-hidden="true"></i><input id="adminId" type="text" inputmode="email" required autocomplete="username" placeholder="Admin email" aria-describedby="loginErr"></div></div>
+                    <div><label class="sr-only" for="adminPass">Passcode</label>
+                        <div class="adm-field"><i class="fa-solid fa-lock" aria-hidden="true"></i><input id="adminPass" type="password" required autocomplete="current-password" placeholder="Passcode" aria-describedby="loginErr">
+                            <button type="button" id="togglePass" class="adm-eye" aria-label="Show passcode" aria-pressed="false"><i class="fa-regular fa-eye" aria-hidden="true"></i></button></div></div>
+                </div>
+                <div class="flex justify-end mt-3"><button type="button" id="forgotBtn" class="text-sm text-white/85 hover:text-white underline-offset-4 hover:underline" aria-expanded="false" aria-controls="forgotHelp">Forgot passcode?</button></div>
+                <div id="forgotHelp" class="hidden mt-3 rounded-lg bg-white/10 border border-white/20 text-white/90 text-xs leading-relaxed p-3" role="region" aria-label="Passcode help">
+                    The admin passcode can be changed in <b>Settings &rarr; School &rarr; Administrator access</b> by an administrator who is signed in. If nobody can sign in, contact Tech Oasis support to reset it. Automatic reset emails start working once the school backend is connected.</div>
+                <p id="loginErr" class="hidden mt-4 text-sm font-medium text-white bg-rose-600/85 border border-rose-300/40 rounded-lg px-3 py-2" role="alert" aria-live="assertive"></p>
+                <div class="h-px bg-white/25 mt-6"></div>
+                <button id="loginBtn" class="adm-submit mt-6"><span data-label>Sign in</span></button>
+                <p class="text-xs text-white/70 text-center mt-5">Not an administrator? <a href="/student/login" class="font-semibold text-white hover:underline">Student sign in</a> &middot; <a href="/staff/login" class="font-semibold text-white hover:underline">Staff sign in</a></p>
+                <a href="index.html" class="block text-center text-xs font-semibold text-white/70 hover:text-white mt-3">&larr; Back to site</a>
+            </form>
+        </div>
+    </div>
+
+    <!-- App shell -->
+    <div id="shell" class="hidden flex min-h-screen">
+        <aside id="nav" class="app-side fixed lg:sticky top-0 left-0 z-40 w-[272px] h-screen bg-ink text-white/80 flex flex-col -translate-x-full lg:translate-x-0 transition-transform shrink-0">
+            <div class="rail-head h-[72px] px-5 flex items-center border-b border-white/10"><a href="#/dashboard" class="brand-logo" data-theme="dark" data-size="36"></a></div>
+            <nav id="navList" class="flex-1 overflow-y-auto thin-scroll px-3 py-4 text-[13px]" aria-label="Admin"></nav>
+            <div class="p-3 border-t border-white/10 space-y-1 text-[13px]">
+                <a href="index.html" target="_blank" class="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5"><i class="fa-solid fa-arrow-up-right-from-square w-4 text-white/40"></i><span class="rail-fade">View website</span></a>
+                <button id="logoutBtn" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/5 text-left"><i class="fa-solid fa-right-from-bracket w-4 text-white/40"></i><span class="rail-fade">Log out</span></button>
+            </div>
+        </aside>
+        <div id="navScrim" class="hidden fixed inset-0 bg-ink/50 z-30 lg:hidden"></div>
+
+        <div class="app-main flex-1 min-w-0 flex flex-col">
+            <header class="h-[72px] bg-white border-b border-slate-200/80 px-4 sm:px-6 flex items-center gap-4 sticky top-0 z-20">
+                <button id="navToggle" class="lg:hidden w-10 h-10 rounded-full hover:bg-slate-100" aria-label="Open navigation"><i class="fa-solid fa-bars"></i></button>
+                <div id="crumbs" class="hidden md:flex items-center gap-2 text-sm text-slate-500 min-w-0"></div>
+                <div class="relative ml-auto w-full max-w-xs">
+                    <i class="fa-solid fa-magnifying-glass absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                    <input id="globalSearch" type="search" placeholder="Search this page…" class="w-full h-10 rounded-full bg-slate-100 pl-9 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-forest-600/20 focus:bg-white" aria-label="Search">
+                </div>
+                <button onclick="location.hash='#/assignments'" class="relative w-10 h-10 rounded-full hover:bg-slate-100 text-slate-500" aria-label="Items needing attention"><i class="fa-regular fa-bell"></i><span id="bell" class="hidden absolute top-1 right-1 min-w-[18px] h-[18px] px-1 rounded-full bg-rose-600 text-white text-[10px] font-bold flex items-center justify-center"></span></button>
+                <div class="hidden sm:flex items-center gap-3"><span class="w-10 h-10 rounded-full bg-gold text-ink text-xs font-bold flex items-center justify-center">AD</span><div class="leading-tight"><div class="text-sm font-semibold text-ink">Administrator</div><div id="adminEmailLabel" class="text-xs text-slate-500"></div></div></div>
+            </header>
+            <main id="view" class="flex-1 p-4 sm:p-6 lg:p-8 min-w-0"></main>
+        </div>
+    </div>
+
+    <script src="assets/js/core/ui.js"></script>
+    <script src="assets/js/core/kit.js"></script>
+    <script src="assets/js/core/crypto.js"></script>
+    <script src="assets/js/core/db.js"></script>
+    <script src="assets/js/core/seed.js"></script>
+    <script src="assets/js/core/lms.js"></script>
+    <script src="assets/js/core/video.js"></script>
+    <script src="assets/js/core/auth.js"></script>
+    <script src="assets/js/core/engage.js"></script>
+    <script src="assets/js/core/staff.js"></script>
+    <script src="assets/js/admin/app.js"></script>
+    <script src="assets/js/admin/courses.js"></script>
+    <script src="assets/js/admin/lesson.js"></script>
+    <script src="assets/js/admin/learning.js"></script>
+    <script src="assets/js/admin/people.js"></script>
+    <script src="assets/js/admin/commerce.js"></script>
+    <script src="assets/js/admin/analytics.js"></script>
+    <script src="assets/js/admin/settings.js"></script>
+    <script src="assets/js/admin/portal.js"></script>
+    <script src="assets/js/admin/staff.js"></script>
+    <script>A.start();</script>
+</body>
+</html>

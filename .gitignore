@@ -1,0 +1,7 @@
+.claude/
+.vscode/*
+!.vscode/settings.json
+*.lnk
+node_modules/
+.vercel
+.env*

@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tech Oasis School animated security emblem (admin sign-in). Plays in any modern browser. -->
+<svg xmlns="http://www.w3.org/2000/svg" class="vl" viewBox="-150 -150 300 300" width="480" height="480" role="img" aria-label="Tech Oasis School secure sign-in">
+            <style>
+/* Admin sign-in emblem ("vault"), separate from the homepage mark animation above:
+   dial draws in and turns -> scan beam reveals the mark -> cube faces unlock and click shut -> status pulse */
+.vl { overflow: visible; }
+.vl .vl-dial, .vl .vl-orbit { transform-box: fill-box; transform-origin: center; }
+.vl .vl-ring { fill: none; stroke: #C4A649; stroke-opacity: .55; stroke-width: 1.2; stroke-dasharray: 1; stroke-dashoffset: 1; animation: vl-draw 1.2s cubic-bezier(.65,0,.35,1) forwards; transition: stroke .4s, stroke-opacity .4s; }
+.vl .vl-ticks { fill: none; stroke: #C4A649; stroke-opacity: .35; stroke-width: 7; stroke-dasharray: 1.2 8.85; opacity: 0; animation: vl-fade .8s ease .5s forwards; transition: stroke .4s, stroke-opacity .4s; }
+.vl .vl-arcs { fill: none; stroke: #3A8D7C; stroke-opacity: .7; stroke-width: 2; stroke-linecap: round; stroke-dasharray: 64 26; opacity: 0; animation: vl-fade .8s ease .7s forwards; transition: stroke .4s, stroke-opacity .4s; }
+.vl .vl-dial-outer { animation: vl-spin 48s linear 1.2s infinite; }
+.vl .vl-dial-inner { animation: vl-spin 32s linear 1.2s infinite reverse; }
+.vl .vl-orbit { opacity: 0; animation: vl-fade .6s ease 1.2s forwards, vl-spin 7s linear 1.2s infinite; }
+.vl .vl-dot { fill: #E7CF6A; filter: drop-shadow(0 0 6px #E7CF6A); transition: fill .4s, filter .4s; }
+.vl .vl-mark { clip-path: inset(0 0 100% 0); animation: vl-reveal 1.5s cubic-bezier(.45,0,.2,1) .6s forwards; }
+.vl .vl-beam { opacity: 0; animation: vl-scan 1.5s cubic-bezier(.45,0,.2,1) .6s forwards; }
+.vl .vl-cube polygon { transform-box: fill-box; transform-origin: center; }
+.vl .vl-f1 { animation: vl-unlock-up .8s cubic-bezier(.34,1.56,.64,1) 2.2s; }
+.vl .vl-f2 { animation: vl-unlock-left .8s cubic-bezier(.34,1.56,.64,1) 2.2s; }
+.vl .vl-f3 { animation: vl-unlock-right .8s cubic-bezier(.34,1.56,.64,1) 2.2s; }
+.vl .vl-pulse { fill: none; stroke: #E7CF6A; stroke-width: 6; opacity: 0; transform-box: fill-box; transform-origin: center; animation: vl-pulse 3.2s ease-out 3s infinite; }
+.vl .vl-halo { opacity: 0; transform-box: fill-box; transform-origin: center; animation: vl-breathe 5s ease-in-out 2.6s infinite; transition: opacity .4s; }
+/* Reacts to the sign-in form: typing arms it, a wrong passcode flashes red, success glows green */
+.vl.armed .vl-ring, .vl.armed .vl-ticks { stroke-opacity: .9; }
+.vl.armed .vl-arcs { stroke: #4FB39C; stroke-opacity: 1; }
+.vl.armed .vl-dot { filter: drop-shadow(0 0 10px #E7CF6A) drop-shadow(0 0 4px #fff); }
+.vl.denied { animation: vl-shake .45s ease; }
+.vl.denied .vl-ring, .vl.denied .vl-ticks, .vl.denied .vl-arcs { stroke: #F43F5E; stroke-opacity: .95; }
+.vl.denied .vl-dot { fill: #F43F5E; filter: drop-shadow(0 0 8px #F43F5E); }
+.vl.granted .vl-ring, .vl.granted .vl-ticks, .vl.granted .vl-arcs { stroke: #34D399; stroke-opacity: 1; }
+.vl.granted .vl-dot { fill: #34D399; filter: drop-shadow(0 0 10px #34D399); }
+@keyframes vl-draw { to { stroke-dashoffset: 0; } }
+@keyframes vl-fade { to { opacity: 1; } }
+@keyframes vl-spin { to { transform: rotate(360deg); } }
+@keyframes vl-reveal { to { clip-path: inset(0 0 0 0); } }
+@keyframes vl-scan { 0% { opacity: 0; transform: translateY(-92px); } 12% { opacity: 1; } 85% { opacity: 1; } 100% { opacity: 0; transform: translateY(92px); } }
+@keyframes vl-unlock-up { 40% { transform: translate(0, -46px); } }
+@keyframes vl-unlock-left { 40% { transform: translate(-40px, 24px); } }
+@keyframes vl-unlock-right { 40% { transform: translate(40px, 24px); } }
+@keyframes vl-pulse { 0% { opacity: .7; transform: scale(.6); } 70%, 100% { opacity: 0; transform: scale(2.6); } }
+@keyframes vl-breathe { 0%, 100% { opacity: .35; transform: scale(.9); } 50% { opacity: .75; transform: scale(1.05); } }
+@keyframes vl-shake { 20%, 60% { transform: translateX(-7px); } 40%, 80% { transform: translateX(7px); } }
+@media (prefers-reduced-motion: reduce) {
+    .vl *, .vl { animation: none !important; }
+    .vl .vl-ring { stroke-dashoffset: 0; } .vl .vl-ticks, .vl .vl-arcs, .vl .vl-orbit { opacity: 1; }
+    .vl .vl-mark { clip-path: none; } .vl .vl-halo { opacity: .5; }
+}
+</style><defs><linearGradient id="vl-beam" x1="0" x2="1"><stop offset="0" stop-color="#E7CF6A" stop-opacity="0"/><stop offset=".5" stop-color="#E7CF6A"/><stop offset="1" stop-color="#E7CF6A" stop-opacity="0"/></linearGradient>
+                <radialGradient id="vl-core"><stop offset="0" stop-color="#E7CF6A" stop-opacity=".55"/><stop offset="1" stop-color="#E7CF6A" stop-opacity="0"/></radialGradient></defs>
+            <rect x="-150" y="-150" width="300" height="300" rx="36" fill="#0A1F1A"/><g class="vl-dial vl-dial-outer"><circle class="vl-ring" r="138" pathLength="1"/><circle class="vl-ticks" r="128"/></g>
+            <g class="vl-dial vl-dial-inner"><circle class="vl-arcs" r="114"/></g>
+            <g class="vl-orbit"><circle r="138" fill="none"/><circle cx="0" cy="-138" r="3.5" class="vl-dot"/></g>
+            <circle class="vl-halo" r="90" fill="url(#vl-core)"/>
+            <g transform="scale(.29) translate(-264,-315)">
+                <g class="vl-mark"><polygon points="255,17 303,46 303,229 250,198 250,100 78,200 78,522 22,490 22,160" fill="#3A8D7C"/><polygon points="125,225 213,176 213,238 179,258 179,583 125,551" fill="#3A8D7C"/><polygon points="352,78 405,106 405,386 228,493 228,383 268,404 352,350" fill="#3A8D7C"/><polygon points="452,140 505,166 505,446 232,612 232,545 452,410" fill="#3A8D7C"/>
+                    <g class="vl-cube"><polygon class="vl-f1" points="207,272 270,236 335,272 270,308" fill="#DEC45B"/><polygon class="vl-f2" points="207,272 270,308 270,372 207,338" fill="#AC903F"/><polygon class="vl-f3" points="270,308 335,272 335,338 270,372" fill="#937733"/></g></g>
+                <circle class="vl-pulse" cx="270" cy="304" r="60"/>
+            </g>
+            <rect class="vl-beam" x="-95" y="-1.5" width="190" height="3" rx="1.5" fill="url(#vl-beam)"/></svg>

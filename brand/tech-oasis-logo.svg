@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Tech Oasis School brand logo -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 342 100" width="684" height="200">
+  <g transform="scale(0.16501650165016502) translate(-16,-12)"><polygon points="255,17 303,46 303,229 250,198 250,100 78,200 78,522 22,490 22,160" fill="#225A50"/><polygon points="125,225 213,176 213,238 179,258 179,583 125,551" fill="#225A50"/><polygon points="352,78 405,106 405,386 228,493 228,383 268,404 352,350" fill="#225A50"/><polygon points="452,140 505,166 505,446 232,612 232,545 452,410" fill="#225A50"/><polygon points="207,272 270,236 335,272 270,308" fill="#DEC45B"/><polygon points="207,272 270,308 270,372 207,338" fill="#AC903F"/><polygon points="270,308 335,272 335,338 270,372" fill="#937733"/></g>
+  <g font-family="Inter, 'Segoe UI', Arial, sans-serif">
+    <text x="109" y="46" font-size="34" font-weight="800" letter-spacing="2.72" fill="#0A1F1A">TECH <tspan fill="#C4A649">OASIS</tspan></text>
+    <text x="109" y="78" font-size="20.5" font-weight="600" letter-spacing="6.56" fill="#59667A">SCHOOL</text>
+  </g>
+</svg>

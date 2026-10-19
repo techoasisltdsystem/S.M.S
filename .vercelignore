@@ -1,0 +1,7 @@
+.claude
+.vscode
+*.lnk
+node_modules
+README.md
+.env*
+.vercel

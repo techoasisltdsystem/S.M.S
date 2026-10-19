@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /admin
+Disallow: /student/
+Disallow: /staff/
+Disallow: /portal.html
+Disallow: /admin.html
+Disallow: /learn.html
+
+Sitemap: https://school.techoasisltd.com/sitemap.xml

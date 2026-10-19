@@ -1,0 +1,59 @@
+/* Tech Oasis Student Portal: application styles (separate from the public marketing site). */
+.portal { background: #F4F5F7; color: #1E293B; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.portal.text-lg-pref { font-size: 17px; }
+.portal.reduce-motion *, .portal.reduce-motion *::before, .portal.reduce-motion *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+
+/* Shell */
+.s-sidebar { width: 268px; background: #fff; border-right: 1px solid #E6E8EC; }
+.s-nav-group { font-size: 10.5px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #94A3B8; padding: 0 .9rem; margin: 1.1rem 0 .4rem; }
+.s-nav-link { position: relative; display: flex; align-items: center; gap: .75rem; padding: .55rem .9rem; margin: 1px .5rem; border-radius: .7rem; font-size: 13.5px; font-weight: 500; color: #475569; transition: background .15s, color .15s; }
+.s-nav-link:hover { background: #F4F5F7; color: #0F172A; }
+.s-nav-link i { width: 1.1rem; text-align: center; color: #94A3B8; transition: color .15s; }
+.s-nav-link.active { background: #EEF6F2; color: #0C3B2E; font-weight: 600; }
+.s-nav-link.active i { color: #14584A; }
+.s-nav-link.active::before { content: ""; position: absolute; left: -.5rem; top: .45rem; bottom: .45rem; width: 3px; border-radius: 0 3px 3px 0; background: #C4A649; }
+.s-badge { min-width: 1.15rem; height: 1.15rem; padding: 0 .3rem; border-radius: 999px; background: #E11D48; color: #fff; font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.s-header { height: 64px; background: rgba(255,255,255,.92); backdrop-filter: blur(10px); border-bottom: 1px solid #E6E8EC; }
+.s-card { background: #fff; border: 1px solid #E6E8EC; border-radius: 1rem; box-shadow: 0 1px 2px rgba(15,23,42,.04); }
+.s-card-hover { transition: box-shadow .2s, transform .2s, border-color .2s; }
+.s-card-hover:hover { box-shadow: 0 10px 30px -14px rgba(15,23,42,.25); border-color: #D7DBE2; transform: translateY(-1px); }
+.s-title { font-size: 1.5rem; line-height: 1.25; font-weight: 700; color: #0F172A; letter-spacing: -.01em; }
+.s-h2 { font-size: 1rem; font-weight: 600; color: #0F172A; }
+.s-muted { color: #59667A; }
+.s-tab { padding: .55rem .9rem; border-radius: .6rem; font-size: 13px; font-weight: 600; color: #64748B; white-space: nowrap; }
+.s-tab:hover { color: #0F172A; background: #EEF0F3; }
+.s-tab.on { background: #0F172A; color: #fff; }
+.s-chip { display: inline-flex; align-items: center; gap: .35rem; font-size: 11px; font-weight: 600; padding: .2rem .55rem; border-radius: 999px; background: #F1F5F9; color: #475569; white-space: nowrap; }
+.s-bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+.s-bottom-nav a.active { color: #0C3B2E; }
+.s-bottom-nav a.active i { color: #14584A; }
+
+/* Skeletons */
+.sk { background: linear-gradient(90deg, #ECEEF1 25%, #F5F6F8 37%, #ECEEF1 63%); background-size: 400% 100%; animation: sk 1.3s ease infinite; border-radius: .6rem; }
+@keyframes sk { 0% { background-position: 100% 50%; } 100% { background-position: 0 50%; } }
+@keyframes slide { 0% { transform: translateX(-120%); } 100% { transform: translateX(320%); } }
+
+/* Progress ring */
+.ring-track { stroke: #E9EDF1; }
+.ring-value { stroke: #14584A; transition: stroke-dashoffset .8s cubic-bezier(.22,1,.36,1); }
+
+/* Calendar */
+.cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); }
+.cal-cell { min-height: 108px; border-right: 1px solid #EEF0F3; border-bottom: 1px solid #EEF0F3; padding: .4rem; }
+.cal-cell:nth-child(7n) { border-right: 0; }
+.cal-ev { display: block; font-size: 11px; line-height: 1.25; padding: .15rem .35rem; border-radius: .35rem; margin-top: .2rem; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* Messaging */
+.bubble { max-width: min(78%, 560px); padding: .65rem .9rem; border-radius: 1rem; font-size: 14px; line-height: 1.5; white-space: pre-line; word-wrap: break-word; }
+.bubble.mine { background: #0C3B2E; color: #fff; border-bottom-right-radius: .3rem; }
+.bubble.theirs { background: #fff; border: 1px solid #E6E8EC; border-bottom-left-radius: .3rem; }
+
+/* Lesson player */
+.learn-curriculum { width: 320px; }
+@media (max-width: 1023px) { .learn-curriculum { width: 88%; max-width: 340px; } }
+
+.fade-in { animation: fadeIn .25s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* Let grid children shrink below their content width (prevents horizontal scroll on phones) */
+.portal main .grid > * { min-width: 0; }
