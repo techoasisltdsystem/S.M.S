@@ -17,6 +17,7 @@
     "db:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/stop.ps1",
     "db:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/test.ps1",
     "db:create-school": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/create-school.ps1",
+    "db:create-platform-admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/create-platform-admin.ps1",
     "dev:local": "npm run db:start && vite"
   },
   "dependencies": {

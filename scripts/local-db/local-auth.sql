@@ -151,6 +151,27 @@ BEGIN
   RETURN jsonb_build_object('school_id', boot ->> 'school_id');
 END $$;
 
+-- Operator-only: create (or promote) a platform super admin login.
+CREATE OR REPLACE FUNCTION auth_local.create_platform_admin(_email TEXT, _password TEXT)
+RETURNS UUID LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth_local, pg_temp AS $$
+DECLARE
+  addr TEXT := lower(btrim(COALESCE(_email, '')));
+  u auth.users;
+BEGIN
+  IF length(COALESCE(_password, '')) < 12 THEN
+    RAISE EXCEPTION 'use at least 12 characters for a platform admin password' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO u FROM auth.users WHERE email = addr;
+  IF NOT FOUND THEN
+    INSERT INTO auth.users (email, encrypted_password, email_confirmed_at)
+    VALUES (addr, crypt(_password, gen_salt('bf', 10)), now()) RETURNING * INTO u;
+  ELSIF crypt(_password, u.encrypted_password) <> u.encrypted_password THEN
+    RAISE EXCEPTION 'this email already has a login; enter its current password' USING ERRCODE = '42501';
+  END IF;
+  INSERT INTO public.platform_admins (user_id) VALUES (u.id) ON CONFLICT DO NOTHING;
+  RETURN u.id;
+END $$;
+
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA auth_local FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION auth_local.check_request() TO anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_logout(),
