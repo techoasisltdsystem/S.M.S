@@ -23,7 +23,8 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState<UserRole>("admin");
-  const [adminMode, setAdminMode] = useState(false);
+  // Student keeps this screen; the other roles switch to their own themed panel.
+  const [panelMode, setPanelMode] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -37,8 +38,10 @@ const Login = () => {
     }
   };
 
-  if (adminMode && role === "admin") {
-    return <AdminLogin onSwitchRole={(r) => { setRole(r); setAdminMode(false); }} />;
+  const pick = (r: UserRole) => { setRole(r); setPanelMode(r !== "student"); };
+
+  if (panelMode && role !== "student") {
+    return <AdminLogin key={role} role={role} onSwitchRole={pick} />;
   }
 
   return (
@@ -102,7 +105,7 @@ const Login = () => {
                     ? "border-primary bg-accent shadow-elevated"
                     : "border-transparent bg-muted/50 hover:bg-muted"
                 }`}
-                onClick={() => { setRole(r.value); setAdminMode(r.value === "admin"); }}
+                onClick={() => pick(r.value)}
               >
                 <CardContent className="flex items-center gap-3 p-3">
                   <r.icon className={`w-5 h-5 shrink-0 ${role === r.value ? "text-primary" : "text-muted-foreground"}`} />
