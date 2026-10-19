@@ -1,12 +1,8 @@
 import { useState } from "react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
 import { motion } from "framer-motion";
-import { Link, useSearchParams } from "react-router-dom";
-import { Eye, EyeOff } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import schoolHero from "@/assets/school-hero.jpg";
 import Logo from "@/components/ui/logo";
 import GlassLogin from "@/components/auth/GlassLogin";
@@ -24,12 +20,22 @@ const Login = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [help, setHelp] = useState(false);
+  const [errors, setErrors] = useState<{ id?: string; password?: string; form?: string }>({});
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const next: typeof errors = {};
+    if (!email.trim()) next.id = "Enter your email or username.";
+    if (!password) next.password = "Enter your password.";
+    setErrors(next);
+    if (next.id || next.password) return;
+
     setLoading(true);
     try {
-      await login(email, password, role);
+      await login(email.trim(), password, role);
+    } catch {
+      setErrors({ form: "We could not sign you in. Check your details and try again." });
     } finally {
       setLoading(false);
     }
@@ -38,6 +44,9 @@ const Login = () => {
   // Administrator, teacher and parent each get their own full-screen sign-in;
   // the student view keeps the original split layout below.
   if (role !== "student") return <GlassLogin role={role} onRoleChange={setRole} />;
+
+  const field =
+    "h-12 w-full rounded-md border bg-background pl-10 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring";
 
   return (
     <div className="flex min-h-screen">
@@ -87,89 +96,118 @@ const Login = () => {
             </span>
           </div>
 
-          <h2 className="font-heading text-2xl font-bold text-foreground mb-1">Welcome back</h2>
-          <p className="text-muted-foreground mb-8">Sign in to your account to continue</p>
-
-          {/* Role Selection */}
-          <div className="grid grid-cols-2 gap-3 mb-8">
-            {ROLES.map((r) => (
-              <Card
-                key={r.value}
-                className={`cursor-pointer transition-all duration-200 border-2 ${
-                  role === r.value
-                    ? "border-primary bg-accent shadow-elevated"
-                    : "border-transparent bg-muted/50 hover:bg-muted"
-                }`}
-                onClick={() => setRole(r.value)}
-              >
-                <CardContent className="flex items-center gap-3 p-3">
-                  <r.icon className={`w-5 h-5 shrink-0 ${role === r.value ? "text-primary" : "text-muted-foreground"}`} />
-                  <div className="min-w-0">
-                    <p className={`text-sm font-medium truncate ${role === r.value ? "text-accent-foreground" : "text-foreground"}`}>
-                      {r.label}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">{r.desc}</p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+          {/* Same role switcher as the other sign-in screens */}
+          <div role="radiogroup" aria-label="Sign in as" className="mb-8 grid grid-cols-4 gap-1 rounded-lg bg-muted p-1">
+            {ROLES.map((r) => {
+              const active = r.value === role;
+              return (
+                <button
+                  key={r.value}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => setRole(r.value)}
+                  className={`flex flex-col items-center gap-1 rounded-md px-1 py-2 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring ${
+                    active ? "bg-primary text-primary-foreground shadow" : "text-muted-foreground hover:bg-background hover:text-foreground"
+                  }`}
+                >
+                  <r.icon className="h-4 w-4" aria-hidden />
+                  {r.short}
+                </button>
+              );
+            })}
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@school.edu"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="h-11"
-              />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="password">Password</Label>
-                <button type="button" className="text-xs text-primary hover:underline">
-                  Forgot password?
-                </button>
-              </div>
+          <h2 id="student-login-title" className="font-heading text-2xl font-bold text-foreground mb-1">Student sign in</h2>
+          <p className="text-muted-foreground mb-6">Your timetable, results and school notices.</p>
+
+          <form onSubmit={handleSubmit} noValidate aria-labelledby="student-login-title">
+            {errors.form && (
+              <p role="alert" className="mb-4 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {errors.form}
+              </p>
+            )}
+
+            <div className="mb-4">
+              <label htmlFor="email" className="sr-only">Email or username</label>
               <div className="relative">
-                <Input
+                <User className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <input
+                  id="email"
+                  type="text"
+                  autoComplete="username"
+                  placeholder="Email or username"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  aria-invalid={!!errors.id}
+                  aria-describedby={errors.id ? "email-err" : undefined}
+                  className={`${field} ${errors.id ? "border-destructive" : "border-input"}`}
+                />
+              </div>
+              {errors.id && <p id="email-err" className="mt-1 text-xs text-destructive">{errors.id}</p>}
+            </div>
+
+            <div className="mb-2">
+              <label htmlFor="password" className="sr-only">Password</label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
+                <input
                   id="password"
                   type={showPassword ? "text" : "password"}
-                  placeholder="Enter your password"
+                  autoComplete="current-password"
+                  placeholder="Password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="h-11 pr-10"
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? "password-err" : undefined}
+                  className={`${field} pr-11 ${errors.password ? "border-destructive" : "border-input"}`}
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showPassword}
+                  className="absolute right-2 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded text-muted-foreground hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
                 >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
+              {errors.password && <p id="password-err" className="mt-1 text-xs text-destructive">{errors.password}</p>}
             </div>
-            <Button type="submit" className="w-full h-11 font-medium" disabled={loading}>
+
+            <div className="mb-5 text-right">
+              <button
+                type="button"
+                onClick={() => setHelp((h) => !h)}
+                aria-expanded={help}
+                className="text-sm text-primary underline-offset-2 hover:underline focus:outline-none focus:ring-2 focus:ring-ring"
+              >
+                Forgot password?
+              </button>
+            </div>
+            {help && (
+              <p className="mb-5 rounded-md bg-muted px-3 py-2 text-sm text-foreground">
+                Password recovery by email is not set up yet. Please contact your school administrator to reset your password.
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-base font-semibold tracking-wide text-primary-foreground transition-colors hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-70"
+            >
               {loading ? (
-                <motion.div
-                  className="w-5 h-5 border-2 border-primary-foreground/30 border-t-primary-foreground rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: "linear" }}
-                />
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" aria-hidden /> Signing in…
+                </>
               ) : (
-                `Sign in as ${ROLES.find((r) => r.value === role)?.label}`
+                "LOGIN"
               )}
-            </Button>
+            </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-muted-foreground">
-            Demo mode — select a role and click sign in
-          </p>
-          <p className="mt-2 text-center text-sm text-muted-foreground">
-            <Link to="/admin" className="text-primary hover:underline">Administrator sign in</Link>
+          <p className="mt-4 text-center text-xs text-muted-foreground">
+            Demo mode: sign-in is not verified against a password yet.
           </p>
         </motion.div>
       </div>
