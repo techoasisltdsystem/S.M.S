@@ -881,6 +881,7 @@ export type Database = {
         Returns: { profile_id: string; full_name: string; gender: string | null; roles: Database["public"]["Enums"]["member_role"][] }[]
       }
       school_overview: { Args: { _school: string }; Returns: Json }
+      student_standing: { Args: { _student: string }; Returns: Json }
       platform_overview: { Args: Record<PropertyKey, never>; Returns: Json }
       platform_schools: {
         Args: Record<PropertyKey, never>
