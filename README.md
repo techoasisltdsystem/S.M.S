@@ -1,80 +1,194 @@
-# Tech Oasis School
+# School Harmony Hub
 
-Online learning platform: public website, student learning experience and an admin LMS/CMS.
-Static site (no build step): Tailwind via CDN, vanilla JavaScript, deployable as-is to Vercel or any static host.
+Tech Oasis School Management System (TOSMS)
 
-## Pages
+Objective: Build a fully integrated, enterprise-grade School Management System (TOSMS) that automates all aspects of school administration for single schools or multi-school networks, with secure licensing for online sales via Tech Oasis Web Solutions.
 
-| Page | Purpose |
-|---|---|
-| `index.html` | Public homepage, catalogue, about and contact (hash views). **Sign in** goes to `/student/login`; the footer links to staff sign-in and *Teach at Tech Oasis* |
-| `/student/*` (`portal.html`) | **Student Portal**, a separate signed-in app: dashboard, my courses, browse, course curriculum, lesson player, assignments, quizzes, certificates, progress, messages, announcements, notifications, calendar, schedule, resources, profile, settings, help |
-| `/staff/apply` (`portal.html`) | Public teaching application (4 steps). Applications start **Pending**; nobody can sign in until an admin approves. `/staff/application` shows the applicant their status and messages |
-| `/staff/*` (`portal.html`) | **Staff Portal** for approved staff: dashboard, my courses (lessons, assignments, quizzes), students, grading, quiz results, messages, announcements, schedule, notifications, profile, settings. Each menu item and API call is gated by the permissions the admin granted |
-| `course.html?c=<slug>` | Course landing page (curriculum, instructor, reviews, enrollment). `&preview=1` = admin preview incl. drafts |
-| `learn.html?...&preview=1` | Admin lesson preview (students are redirected to `/student/learn/:lessonId`) |
-| `verify.html?code=<id>` | Certificate view, print/PDF, public verification |
-| `admin.html` (`/admin`) | Admin CMS, including **People → Staff Applications** (review, request info, approve with role/permissions/courses, reject) and **People → Staff** (edit, permissions, suspend, ban, unban, archive, soft delete, force password reset). Queued emails: **Settings → Email Outbox**.<br>Admin CMS (sample sign-in: `school@techoasisltd.com` / `admin123`. **Change it in Settings → School before launch**; the passcode is checked in the browser, so real admin security needs the backend below) |
+1. System Overview
 
-## Code map
+The system should centralize student, teacher/staff, class, finance, and operational management.
 
+Include role-based dashboards for Admins, Teachers, Students, and Parents.
+
+Ensure secure, licensed deployment with server-side validation of license keys.
+
+Support mobile-friendly interfaces and push notifications.
+
+Include analytics dashboards for academic, financial, and operational KPIs.
+
+2. Core Modules & Features
+
+2.1 Student Management
+
+Online admission forms, enrollment, and personal/guardian info
+
+Academic history, promotions, graduation tracking
+
+Alumni and transfer management
+
+2.2 Teacher & Staff Management
+
+Staff profiles, attendance (manual/biometric), payroll
+
+Role-based access control
+
+Schedule and timetable management
+
+2.3 Classes & Timetable Management
+
+Automated timetable generation
+
+Room and lab allocation
+
+Curriculum assignment
+
+Conflict detection
+
+2.4 Exams & Assessments
+
+Exam creation and grading
+
+Automated report card generation
+
+Performance analytics
+
+Parent/student portal access to results
+
+2.5 Fee & Payment Management
+
+Tuition, hostel, transport fees setup
+
+Online payment integration (cards, mobile money, bank transfer)
+
+Invoice and receipt generation
+
+Fee reminders and alerts
+
+2.6 Parent & Student Portal
+
+View attendance, grades, fee statements, and notices
+
+Event announcements and timetable access
+
+Push notifications
+
+2.7 Communication & Alerts
+
+SMS, email, and in-app notifications
+
+Emergency alerts and reminders
+
+Communication logs
+
+2.8 Library & Asset Management
+
+Book/equipment inventory tracking
+
+Borrow/return and overdue management
+
+Asset lifecycle management
+
+2.9 Attendance & Leave Management
+
+Biometric/manual attendance logging
+
+Leave requests and approvals
+
+Absenteeism reporting
+
+2.10 Analytics & Reports
+
+Academic dashboards
+
+Financial summaries and KPIs
+
+Operational reports and custom report generation
+
+2.11 Security & Compliance
+
+Role-based access control (RBAC)
+
+End-to-end encryption for sensitive data
+
+Audit logs and compliance tracking
+
+GDPR/FERPA-ready data handling
+
+3. Enterprise & Advanced Features
+
+AI-driven performance prediction
+
+Multi-school network support
+
+Android/iOS mobile apps for stakeholders
+
+Offline operation with automatic sync
+
+Custom branding and themes (white-label)
+
+4. Licensing & Secure Key Management
+
+4.1 Licensing Model
+
+Per-school and multi-school licenses
+
+Subscription options (monthly/annual)
+
+4.2 License Key Features
+
+Unique, cryptographically generated keys
+
+Linked to school ID or installation
+
+Server-side validation for authenticity
+
+Optional token expiration for temporary/trial licenses
+
+Anti-cracking mechanisms: online activation, encrypted storage, device-binding
+
+4.3 Secure License Generation Workflow
+
+Generate key using strong cryptography (SHA-256 + salt), including school ID, license type, and expiration.
+
+Validate key server-side on activation; reject invalid or expired keys.
+
+Enable online purchase/activation via Tech Oasis Web Solutions.
+
+Optional offline activation: temporary keys with limited-time usage until next online verification.
+
+5. Implementation Notes
+
+Modular architecture to support future upgrades (AI analytics, multi-school management)
+
+Mobile-first design for parent/student portals
+
+Push notifications for key events
+
+Comprehensive audit trails for all critical actions
+
+Ensure security, scalability, and maintainability
+
+💡 Instruction for Lovable AI: Build this system as enterprise-ready, secure, and modular, with all the above features fully implemented and ready for licensing and commercial deployment.
+
+This project was built with [Lovable](https://lovable.dev).
+
+**Live app**: https://oasis-school-flow.lovable.app
+
+## Build with Lovable
+
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/1e8ad3cf-f458-4f2c-8451-fcee80949c41).
+
+- **Ship faster**: describe what you want to build and Lovable handles the code.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
+
+## Development
+
+Prefer working locally? You need Node.js and npm — [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating).
+
+```sh
+git clone <this-repository-url>
+cd <repository-name>
+npm i
+npm run dev
 ```
-assets/js/core/db.js      Relational store: tables, foreign keys, cascades, ordering, persistence adapter
-assets/js/core/lms.js     Domain logic: curriculum tree, authoring, progress, quizzes, assignments,
-                          certificates, checkout, analytics
-assets/js/core/video.js   Video provider registry (YouTube, Vimeo, MP4/WebM, Bunny, Cloudflare, Loom, embed)
-assets/js/core/crypto.js  SHA-256 / PBKDF2 password hashing and tokens (no password is ever stored in plain text)
-assets/js/core/auth.js    Accounts, sessions, account-status checks at sign-in (+ migration that hashes old passwords)
-assets/js/core/staff.js   Staff applications, approval, roles & permissions, account lifecycle, password resets, audit trail, email outbox
-assets/js/core/staff-api.js Staff API: session, status, permission and course-ownership checks on every call
-assets/js/core/engage.js  Notifications (row triggers), messaging + permissions, calendar, support tickets, notes, student IDs
-assets/js/core/kit.js     Dashboard kit shared by every dashboard: welcome banner, stat cards, panels, quick actions, schedule,
-                          bar/line/donut charts, mini calendar, data table (search, filters, sort, pages, loading/empty/error)
-assets/js/core/api.js     Student API: the only data interface the portal uses (session + ownership checks)
-assets/js/student/*.js    Portal shell/router shared by both portals (S.APPS.student / S.APPS.staff), plus the student portal: sign-in, dashboard, courses, learning, work, comms, academic, account
-assets/js/core/seed.js    Sample content (12 programs; "Web Development" has the full 6-section curriculum)
-assets/js/staff/*.js      Staff portal: shell config, public apply/login/reset pages, dashboard & communication, teaching & grading
-assets/js/admin/*.js      CMS screens (courses + builder, lesson editor, learning, people, staff, commerce, analytics, settings)
-assets/js/pages/*.js      Public pages
-db/schema.sql             PostgreSQL/Supabase schema matching db.js one-to-one
-```
-
-Content hierarchy: **Course → Sections → Lessons → Content items**, with Quiz / Assignment / Resources attached to lessons
-(resources can also attach to a whole course). Enrollment, LessonProgress, QuizAttempt, Submission and Certificate link students to that tree by ID.
-
-Add a video host: `TOS.video.register({ id, label, match(url), parse(url), thumbnail(ref), mount(el, item, hooks) })`.
-
-## Run locally
-
-The portals use real paths (`/student/dashboard`, `/staff/dashboard`), so the server must rewrite `/student/*` and `/staff/*` to `portal.html`.
-`vercel.json` (Vercel) and `serve.json` (`npx serve`) already do this:
-
-```bash
-npx serve -l 5501
-```
-
-Student sign-in: `/student/login` (sample student: `margaret@gmail.com` / `student123`). Staff: `/staff/login`
-(sample instructor: `instructor@techoasisltd.com` / `staff123`). Admin: `/admin`. Two sample applications are waiting in
-**Admin → Staff Applications**.
-
-VS Code Live Server: `.vscode/settings.json` sets `"liveServer.settings.file": "portal.html"`, so unknown paths fall back to the
-portal. **Restart Live Server after changing that setting**, or `/student/login` and `/staff/login` show *Cannot GET*.
-
-## Audit notes
-
-See [`docs/AUDIT.md`](docs/AUDIT.md) for the full website audit: what was wrong, what changed, what still needs a backend or business decision, and the tests that were run.
-`TOS.config.serverConnected` (in `assets/js/core/ui.js`) is `false` until the data lives on a server; while it is `false`, pages that collect or promise something say plainly that it is stored in this browser only. Online payment is switched off in `lms.onlinePayments()` until a gateway exists. Public contact details and social links are filled in at **Admin → Settings → School** and appear on the site only once entered.
-
-## Before launch (important)
-
-This build stores all data **in each visitor's browser** (`localStorage`). It is a complete, working product demo, but a real
-school needs shared, server-side data. To launch:
-
-1. **Database + auth:** create the tables in `db/schema.sql` (e.g. on Supabase), enable Row Level Security, and replace
-   `LocalStorageAdapter` in `db.js` / the functions in `auth.js`, `staff.js`, `api.js` and `staff-api.js` with API calls.
-   Admin access, staff permissions and account status must be enforced server-side (see the RLS notes in `schema.sql`).
-   Hook `email_outbox` up to an email provider so verification, approval and reset emails are actually sent.
-2. **Payments:** connect Paystack, Flutterwave or Stripe. Orders must be marked paid by the provider's webhook, never by the browser.
-3. **File storage:** host videos on a video provider and files in object storage (uploads are limited to 1 MB in the demo).
-4. **Content:** in **Admin → Settings → School → Data**, export a backup, then **Start fresh** to remove the sample
-   courses, students, orders and reviews before adding your own.
