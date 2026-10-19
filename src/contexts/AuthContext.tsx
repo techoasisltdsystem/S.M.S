@@ -12,11 +12,12 @@ import {
 import type { Database } from "@/integrations/supabase/types";
 
 /** The four sign-in screens and dashboard layouts. */
-export type UserRole = "admin" | "teacher" | "student" | "parent";
+export type UserRole = "admin" | "teacher" | "student" | "parent" | "platform";
 /** A role as stored in the database for one school. */
 export type MemberRole = Database["public"]["Enums"]["member_role"];
 
-export const MEMBER_ROLE_LABEL: Record<MemberRole, string> = {
+export const MEMBER_ROLE_LABEL: Record<MemberRole | "platform_admin", string> = {
+  platform_admin: "Platform administrator",
   school_admin: "School administrator",
   teacher: "Teacher",
   student: "Student",
@@ -27,7 +28,7 @@ export const MEMBER_ROLE_LABEL: Record<MemberRole, string> = {
 
 // Finance officers and auditors use the administrator layout; what they can
 // open is still limited by their permissions.
-const LAYOUT_FOR: Record<MemberRole, UserRole> = {
+const LAYOUT_FOR: Record<MemberRole, Exclude<UserRole, "platform">> = {
   school_admin: "admin",
   finance_officer: "admin",
   auditor: "admin",
@@ -51,10 +52,11 @@ export interface Membership {
   permissions: string[];
 }
 
-export interface User extends Membership {
+export interface User extends Omit<Membership, "memberRole"> {
   /** The school profile id (used as the user's id across pages). */
   id: string;
   role: UserRole;
+  memberRole: MemberRole | "platform_admin";
 }
 
 interface AuthContextType {
@@ -66,6 +68,8 @@ interface AuthContextType {
   login: (email: string, password: string, screenRole: UserRole) => Promise<void>;
   logout: () => Promise<void>;
   switchMembership: (m: Membership) => void;
+  /** True for Tech Oasis platform administrators (no school membership). */
+  isPlatform: boolean;
   /** Interface hint only; the database checks every request itself. */
   can: (permission: string) => boolean;
   /** Set while an administrator still has to pass the second factor. */
@@ -92,6 +96,24 @@ const loadMemberships = async (): Promise<Membership[]> => {
     memberRole: m.role,
     permissions: m.permissions ?? [],
   }));
+};
+
+const platformUser = (authId: string, email: string): User => ({
+  schoolId: "",
+  schoolName: "Tech Oasis platform",
+  schoolSuspended: false,
+  profileId: authId,
+  name: email || "Platform administrator",
+  email,
+  memberRole: "platform_admin",
+  permissions: ["platform.manage"],
+  id: authId,
+  role: "platform",
+});
+
+const checkPlatform = async (): Promise<boolean> => {
+  const { data } = await db.rpc("is_platform_admin");
+  return data === true;
 };
 
 const toUser = (m: Membership): User => ({ ...m, id: m.profileId, role: LAYOUT_FOR[m.memberRole] });
@@ -140,6 +162,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     [refreshMfa],
   );
 
+  const activatePlatform = useCallback(async (authId: string, email: string) => {
+    setMemberships([]);
+    setUser(platformUser(authId, email));
+    remember(null);
+    await refreshMfa();
+  }, [refreshMfa]);
+
   // Restore an existing session on load.
   useEffect(() => {
     let cancelled = false;
@@ -147,7 +176,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       try {
         if (await currentAuthUserId()) {
           const list = await loadMemberships();
-          if (!cancelled) await activate(list, pick(list, remembered()));
+          if (list.length === 0 && (await checkPlatform())) {
+            const id = (await currentAuthUserId()) ?? "";
+            if (!cancelled) await activatePlatform(id, "");
+          } else if (!cancelled) {
+            await activate(list, pick(list, remembered()));
+          }
         }
       } catch {
         if (!cancelled) await activate([], null);
@@ -169,8 +203,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [activate]);
 
   const login = async (email: string, password: string, screenRole: UserRole) => {
-    await signIn(email, password);
+    const authId = await signIn(email, password);
     const list = await loadMemberships();
+    if (list.length === 0 && (await checkPlatform())) {
+      await activatePlatform(authId, email.trim().toLowerCase());
+      return;
+    }
     if (list.length === 0) {
       await signOut();
       throw new AuthError(
@@ -183,7 +221,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const logout = async () => {
-    if (user) await db.rpc("log_session_event", { _school: user.schoolId, _action: "logout" });
+    if (user && user.role !== "platform") await db.rpc("log_session_event", { _school: user.schoolId, _action: "logout" });
     await signOut();
     await activate([], null);
   };
@@ -191,6 +229,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const switchMembership = (m: Membership) => {
     void activate(memberships, m);
   };
+
+  const isPlatform = user?.role === "platform";
 
   const can = (permission: string) => !!user?.permissions.includes(permission);
 
@@ -205,6 +245,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         logout,
         switchMembership,
         can,
+        isPlatform,
         mfa,
         refreshMfa,
       }}

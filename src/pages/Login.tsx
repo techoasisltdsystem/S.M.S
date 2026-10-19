@@ -15,9 +15,9 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [params] = useSearchParams();
   // /login?role=teacher opens straight on that role; students are the default.
-  const [role, setRole] = useState<UserRole>(() => {
+  const [role, setRole] = useState<Exclude<UserRole, "platform">>(() => {
     const r = params.get("role");
-    return ROLES.some((x) => x.value === r) ? (r as UserRole) : "student";
+    return ROLES.some((x) => x.value === r) ? (r as Exclude<UserRole, "platform">) : "student";
   });
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);

@@ -13,6 +13,13 @@ import AcceptInvite from "./pages/AcceptInvite";
 import ResetPassword from "./pages/ResetPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminModulesPage from "./pages/AdminModulesPage";
+import ClassesPage from "./pages/ClassesPage";
+import StudentsPage from "./pages/StudentsPage";
+import AttendancePage from "./pages/AttendancePage";
+import TimetablePage from "./pages/TimetablePage";
+import ExamsPage from "./pages/ExamsPage";
+import CalendarPage from "./pages/CalendarPage";
+import PlatformPage from "./pages/PlatformPage";
 import LandingPage from "./pages/LandingPage";
 import SetupWizard from "./pages/SetupWizard";
 import UserManagementPage from "./pages/UserManagementPage";
@@ -31,11 +38,12 @@ const Checking = () => (
 
 // Signed-in pages. `permission` hides a page from roles that cannot use it;
 // the database refuses those requests anyway.
-const ProtectedRoute = ({ children, permission }: { children: React.ReactNode; permission?: string }) => {
-  const { isAuthenticated, loading, mfa, can } = useAuth();
+const ProtectedRoute = ({ children, permission, platform }: { children: React.ReactNode; permission?: string; platform?: boolean }) => {
+  const { isAuthenticated, loading, mfa, can, isPlatform } = useAuth();
   if (loading) return <Checking />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (mfa && mfa.kind !== "not_needed") return <MfaGate />;
+  if (platform ? !isPlatform : isPlatform) return platform ? <Forbidden /> : <Navigate to="/platform" replace />;
   if (permission && !can(permission)) return <Forbidden />;
   return <>{children}</>;
 };
@@ -56,6 +64,10 @@ const AppRoutes = () => (
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
+    {/* Tech Oasis platform console */}
+    <Route path="/platform" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
+    <Route path="/platform/schools" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
+
     {/* Admin pages */}
     <Route path="/setup" element={<ProtectedRoute permission="school.settings.manage"><SetupWizard /></ProtectedRoute>} />
     <Route path="/user-management" element={<ProtectedRoute permission="users.manage"><UserManagementPage /></ProtectedRoute>} />
@@ -65,12 +77,13 @@ const AppRoutes = () => (
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
 
     {/* Modules not built yet: each page says which phase brings it */}
-    <Route path="/students" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
+    <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
+    <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
     <Route path="/fees" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
-    <Route path="/classes" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
-    <Route path="/timetable" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
-    <Route path="/exams" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
-    <Route path="/attendance" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
+    <Route path="/classes" element={<ProtectedRoute><ClassesPage /></ProtectedRoute>} />
+    <Route path="/timetable" element={<ProtectedRoute><TimetablePage /></ProtectedRoute>} />
+    <Route path="/exams" element={<ProtectedRoute><ExamsPage /></ProtectedRoute>} />
+    <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
     <Route path="/library" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
     <Route path="/notifications" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />

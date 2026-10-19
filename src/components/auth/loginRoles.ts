@@ -4,7 +4,7 @@ import adminBg from "@/assets/admin-login-bg.webp";
 import teacherBg from "@/assets/teacher-login-bg.jpg";
 import parentBg from "@/assets/parent-login-bg.jpg";
 
-export const LOGIN_ROLES: { value: UserRole; label: string; short: string; icon: React.ElementType; desc: string }[] = [
+export const LOGIN_ROLES: { value: Exclude<UserRole, "platform">; label: string; short: string; icon: React.ElementType; desc: string }[] = [
   { value: "admin", label: "Administrator", short: "Admin", icon: ShieldCheck, desc: "Full system access" },
   { value: "teacher", label: "Teacher", short: "Teacher", icon: BookOpen, desc: "Classes & grading" },
   { value: "student", label: "Student", short: "Student", icon: GraduationCap, desc: "Portal access" },
@@ -12,7 +12,7 @@ export const LOGIN_ROLES: { value: UserRole; label: string; short: string; icon:
 ];
 
 // Roles that use the full-screen photo sign-in; students keep the split layout.
-export type GlassRole = Exclude<UserRole, "student">;
+export type GlassRole = Exclude<UserRole, "student" | "platform">;
 
 interface GlassTheme {
   image: string;

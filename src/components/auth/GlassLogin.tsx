@@ -11,7 +11,7 @@ import { LOGIN_ROLES, GLASS_THEMES, GlassRole } from "./loginRoles";
 interface GlassLoginProps {
   role: GlassRole;
   // When provided, a role switcher is shown inside the card.
-  onRoleChange?: (role: UserRole) => void;
+  onRoleChange?: (role: Exclude<UserRole, "platform">) => void;
 }
 
 // Full-screen photo with a frosted sign-in card; used for the administrator,
