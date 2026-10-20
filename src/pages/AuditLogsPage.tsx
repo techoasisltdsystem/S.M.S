@@ -50,6 +50,9 @@ const ACTION_META: Record<AuditAction, { label: string; icon: React.ElementType;
   results_approved: { label: 'Results Approved', icon: Shield, color: 'text-success' },
   results_published: { label: 'Results Published', icon: Eye, color: 'text-success' },
   results_reopened: { label: 'Results Reopened', icon: AlertTriangle, color: 'text-warning' },
+  record_created: { label: 'Record Added', icon: UserPlus, color: 'text-success' },
+  record_updated: { label: 'Record Changed', icon: Settings, color: 'text-info' },
+  record_deleted: { label: 'Record Removed', icon: UserMinus, color: 'text-destructive' },
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

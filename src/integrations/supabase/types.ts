@@ -914,7 +914,7 @@ export type Database = {
       assessment_status: "draft" | "submitted" | "approved" | "published"
       attendance_status: "present" | "absent" | "late" | "excused"
       audience: "everyone" | "staff" | "students" | "parents"
-      audit_action: "user_created" | "user_updated" | "user_deleted" | "user_banned" | "user_suspended" | "user_activated" | "role_changed" | "config_updated" | "login" | "logout" | "password_reset" | "permission_changed" | "school_created" | "school_updated" | "member_invited" | "invitation_accepted" | "student_enrolled" | "enrollment_changed" | "guardian_linked" | "attendance_corrected" | "results_submitted" | "results_approved" | "results_published" | "results_reopened"
+      audit_action: "user_created" | "user_updated" | "user_deleted" | "user_banned" | "user_suspended" | "user_activated" | "role_changed" | "config_updated" | "login" | "logout" | "password_reset" | "permission_changed" | "school_created" | "school_updated" | "member_invited" | "invitation_accepted" | "student_enrolled" | "enrollment_changed" | "guardian_linked" | "attendance_corrected" | "results_submitted" | "results_approved" | "results_published" | "results_reopened" | "record_created" | "record_updated" | "record_deleted"
       enrollment_status: "active" | "transferred" | "withdrawn" | "completed"
       event_category: "academic" | "exam" | "sports" | "holiday" | "meeting" | "other"
       guardian_link_status: "pending" | "verified" | "revoked"
@@ -1055,7 +1055,7 @@ export const Constants = {
       assessment_status: ["draft", "submitted", "approved", "published"],
       attendance_status: ["present", "absent", "late", "excused"],
       audience: ["everyone", "staff", "students", "parents"],
-      audit_action: ["user_created", "user_updated", "user_deleted", "user_banned", "user_suspended", "user_activated", "role_changed", "config_updated", "login", "logout", "password_reset", "permission_changed", "school_created", "school_updated", "member_invited", "invitation_accepted", "student_enrolled", "enrollment_changed", "guardian_linked", "attendance_corrected", "results_submitted", "results_approved", "results_published", "results_reopened"],
+      audit_action: ["user_created", "user_updated", "user_deleted", "user_banned", "user_suspended", "user_activated", "role_changed", "config_updated", "login", "logout", "password_reset", "permission_changed", "school_created", "school_updated", "member_invited", "invitation_accepted", "student_enrolled", "enrollment_changed", "guardian_linked", "attendance_corrected", "results_submitted", "results_approved", "results_published", "results_reopened", "record_created", "record_updated", "record_deleted"],
       enrollment_status: ["active", "transferred", "withdrawn", "completed"],
       event_category: ["academic", "exam", "sports", "holiday", "meeting", "other"],
       guardian_link_status: ["pending", "verified", "revoked"],
