@@ -36,7 +36,17 @@ export const day = (d: string | null | undefined) =>
 export const stamp = (iso: string | null | undefined) =>
   iso ? new Date(iso).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
 
-export const usePricing = () => useQuery({ queryKey: ["pricing"], queryFn: () => rpc<Pricing>("billing_public_pricing"), staleTime: 60_000 });
+
+
+const get = async <T,>(path: string): Promise<T> => {
+  const res = await fetch(`/api/billing/${path}`);
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(json.error || "The service did not respond.");
+  return json as T;
+};
+
+// Signed-out visitors have no token, so these go through the server (see server/billing/core.mjs).
+export const usePricing = () => useQuery({ queryKey: ["pricing"], queryFn: () => get<Pricing>("pricing"), staleTime: 60_000 });
 
 // ----- checkout -----------------------------------------------------------------------------------
 const post = async <T,>(path: string, body: unknown): Promise<T> => {
@@ -47,14 +57,14 @@ const post = async <T,>(path: string, body: unknown): Promise<T> => {
 };
 
 export const startSignup = (v: { plan: string; interval: Interval; school: string; admin: string; email: string; phone: string }) =>
-  rpc<OrderStart>("billing_start_signup", { _plan: v.plan, _interval: v.interval, _school_name: v.school, _admin_name: v.admin, _admin_email: v.email, _phone: v.phone || null });
+  post<OrderStart>("signup", v);
 export const startOrder = (v: { school: string; plan: string; interval: Interval }) =>
   rpc<OrderStart>("billing_start_order", { _school: v.school, _plan: v.plan, _interval: v.interval });
 export const beginPayment = (reference: string, claim: string) => post<{ status?: string; mode?: "paystack" | "demo"; url?: string }>("initialize", { reference, claim });
 export const confirmPayment = (reference: string, claim: string) => post<{ status: OrderState }>("verify", { reference, claim });
 export const demoPay = (reference: string, claim: string, outcome: "success" | "failed" | "abandoned") => post<{ status: OrderState }>("demo-pay", { reference, claim, outcome });
-export const orderStatus = (reference: string, claim: string) => rpc<OrderStatus>("billing_order_status", { _reference: reference, _claim: claim });
-export const claimInvite = (reference: string, claim: string) => rpc<string | null>("billing_claim_invite", { _reference: reference, _claim: claim });
+export const orderStatus = (reference: string, claim: string) => post<OrderStatus>("status", { reference, claim });
+export const claimInvite = async (reference: string, claim: string) => (await post<{ token: string | null }>("claim", { reference, claim })).token;
 
 // The browser remembers an unfinished checkout so a cancelled payment does not lose the selection.
 const KEY = "tosms.checkout";

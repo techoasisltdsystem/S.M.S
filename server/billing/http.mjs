@@ -1,5 +1,5 @@
 // HTTP adapter shared by the Vercel functions and the Vite dev server.
-import { HttpError, config, demoPay, initialize, makeEnv, rateLimit, recoverRequest, recoverSend, verify, webhook } from './core.mjs'
+import { HttpError, config, demoPay, initialize, makeEnv, publicClaim, publicPricing, publicSignup, publicStatus, rateLimit, recoverRequest, recoverSend, verify, webhook } from './core.mjs'
 
 const readRaw = async (req) => {
   if (req.rawBody) return Buffer.from(req.rawBody)
@@ -17,6 +17,10 @@ const send = (res, status, body) => {
 
 const routes = {
   config: { method: 'GET', run: (env) => config(env) },
+  pricing: { method: 'GET', run: (env) => publicPricing(env) },
+  signup: { method: 'POST', json: true, limit: 15, run: (env, _req, body) => publicSignup(env, body) },
+  status: { method: 'POST', json: true, limit: 60, run: (env, _req, body) => publicStatus(env, body) },
+  claim: { method: 'POST', json: true, limit: 20, run: (env, _req, body) => publicClaim(env, body) },
   initialize: { method: 'POST', json: true, limit: 20, run: (env, req, body) => initialize(env, req.headers, body) },
   verify: { method: 'POST', json: true, limit: 60, run: (env, _req, body) => verify(env, body) },
   'demo-pay': { method: 'POST', json: true, limit: 30, run: (env, _req, body) => demoPay(env, body) },

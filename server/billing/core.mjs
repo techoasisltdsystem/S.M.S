@@ -253,3 +253,24 @@ export const recoverSend = async (env, headers, { request }) => {
     return { state: 'failed', error: e.message }
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// Public (signed-out) billing calls. A visitor has no sign-in token, and hosted Data APIs refuse
+// anonymous calls, so these few functions are reached through the server. They are the same
+// database functions the laptop calls directly; the database still prices and validates everything.
+// ---------------------------------------------------------------------------------------------
+const USER_ERRORS = new Set(['22023', '23505', '54000', 'P0002'])
+const callPublic = async (env, text, params) => {
+  try { return (await one(env, text, params)).r }
+  catch (e) {
+    if (USER_ERRORS.has(e.code)) throw new HttpError(400, e.message)
+    throw e
+  }
+}
+
+export const publicPricing = (env) => callPublic(env, `SELECT public.billing_public_pricing() AS r`, [])
+export const publicSignup = (env, b) => callPublic(env,
+  `SELECT public.billing_start_signup($1, $2, $3, $4, $5, $6) AS r`,
+  [b.plan, b.interval, b.school, b.admin, b.email, b.phone ?? null])
+export const publicStatus = (env, b) => callPublic(env, `SELECT public.billing_order_status($1, $2) AS r`, [b.reference, b.claim])
+export const publicClaim = async (env, b) => ({ token: await callPublic(env, `SELECT public.billing_claim_invite($1, $2) AS r`, [b.reference, b.claim]) })
