@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
+import ConfirmDelete from "@/components/classes/ConfirmDelete";
 import { db } from "@/lib/db";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +34,7 @@ const NoticeDialog = ({ open, onOpenChange, schoolId, notice, classOnly, classes
   const [audience, setAudience] = useState<Audience>("everyone");
   const [classId, setClassId] = useState(WHOLE_SCHOOL);
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -65,6 +67,22 @@ const NoticeDialog = ({ open, onOpenChange, schoolId, notice, classOnly, classes
       onOpenChange(false);
     } catch (err) {
       toast({ title: "Could not post the notice", description: errorText(err), variant: "destructive" });
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const remove = async () => {
+    if (!notice) return;
+    setSaving(true);
+    try {
+      const { error } = await db.from("announcements").delete().eq("id", notice.id);
+      if (error) throw error;
+      toast({ title: "Notice deleted" });
+      onSaved();
+      onOpenChange(false);
+    } catch (err) {
+      toast({ title: "Could not delete the notice", description: errorText(err), variant: "destructive" });
     } finally {
       setSaving(false);
     }
@@ -108,6 +126,11 @@ const NoticeDialog = ({ open, onOpenChange, schoolId, notice, classOnly, classes
             </div>
           </div>
           <DialogFooter className="gap-2">
+            {notice && (
+              <Button type="button" variant="ghost" className="text-destructive sm:mr-auto" disabled={saving} onClick={() => setConfirming(true)}>
+                <Trash2 className="mr-1 h-4 w-4" />Delete
+              </Button>
+            )}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -115,6 +138,7 @@ const NoticeDialog = ({ open, onOpenChange, schoolId, notice, classOnly, classes
             </Button>
           </DialogFooter>
         </form>
+        <ConfirmDelete open={confirming} onOpenChange={setConfirming} title="Delete this notice?" text="It disappears for everyone. The deletion is recorded in the audit log." onConfirm={remove} />
       </DialogContent>
     </Dialog>
   );

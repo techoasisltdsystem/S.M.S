@@ -335,4 +335,23 @@ BEGIN
     'nobody can write audit entries directly');
 END $$;
 
+-- Deleting setup records: allowed for the office, refused when still in use, audited.
+DO $$
+DECLARE
+  c UUID; s UUID;
+BEGIN
+  PERFORM pg_temp.act_as('admin-a@test.invalid');
+  INSERT INTO public.subjects (school_id, name) VALUES (pg_temp.id('school_a'), 'Delete Probe') RETURNING id INTO s;
+  DELETE FROM public.subjects WHERE id = s;
+  PERFORM pg_temp.ok(NOT EXISTS (SELECT 1 FROM public.subjects WHERE id = s), 'the office deletes an unused subject');
+  PERFORM pg_temp.ok(EXISTS (SELECT 1 FROM public.audit_logs WHERE school_id = pg_temp.id('school_a')
+    AND action = 'record_deleted' AND target_type = 'subjects' AND target_name = 'Delete Probe'), 'the deletion is audited');
+  SELECT id INTO c FROM public.classes WHERE school_id = pg_temp.id('school_a') AND EXISTS (SELECT 1 FROM public.enrollments e WHERE e.class_id = classes.id) LIMIT 1;
+  PERFORM pg_temp.ok(pg_temp.fails(format('DELETE FROM public.classes WHERE id = %L', c)), 'a class with students cannot be deleted');
+  PERFORM pg_temp.ok(pg_temp.fails($q$DELETE FROM public.academic_years WHERE school_id = pg_temp.id('school_a') AND EXISTS (SELECT 1 FROM public.terms t WHERE t.academic_year_id = academic_years.id)$q$),
+    'a year with terms cannot be deleted');
+  PERFORM pg_temp.act_as('admin-b@test.invalid');
+  PERFORM pg_temp.ok(pg_temp.count($q$SELECT 1 FROM public.subjects WHERE school_id = pg_temp.id('school_a')$q$) = 0, 'school B sees none of school A subjects');
+END $$;
+
 ROLLBACK;
