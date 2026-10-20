@@ -254,7 +254,10 @@ export const requestPasswordReset = async (email: string) => {
   if (dbProvider === 'local') {
     // The local sign-in has no email service of its own; the billing backend sends the single-use link.
     const res = await fetch('/api/billing/recover', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) })
-    if (!res.ok) throw new AuthError('We could not start the reset. Try again later.')
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      throw new AuthError(j.error || 'We could not start the reset. Try again later.')
+    }
     return
   }
   const { error } = await (neon ? neon.auth : db.auth).resetPasswordForEmail(email, {

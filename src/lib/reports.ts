@@ -292,3 +292,78 @@ export const receiptPdf = (d: InvoiceDoc, receipt: string) => {
   addPageNumbers(doc, new Date().toISOString());
   doc.save(`receipt-${safeName(p.receipt)}.pdf`);
 };
+
+// ---------------------------------------------------------------------------
+// Performance summary for a student or a parent (from what the dashboard already shows)
+// ---------------------------------------------------------------------------
+export interface PerformanceData {
+  school: School;
+  student: { name: string; class: string | null };
+  average: number | null;
+  rank: number | null;
+  classSize: number | null;
+  attendancePct: number | null;
+  attendanceDays: number;
+  subjects: { subject: string; average: number; count: number }[];
+  results: { subject: string; title: string; kind: string; date: string; score: number; max: number; percent: number }[];
+  issued_at: string;
+}
+
+const performanceRows = (d: PerformanceData): { headers: string[]; rows: Cell[][] } => {
+  const blank: Cell[] = ["", "", "", "", "", ""];
+  const rows: Cell[][] = [
+    ["Student", d.student.name, "", "", "", ""],
+    ["Class", d.student.class ?? "", "", "", "", ""],
+    ["Average of published results (%)", d.average ?? "", "", "", "", ""],
+    ["Class position", d.rank != null ? `${d.rank} of ${d.classSize ?? ""}` : "", "", "", "", ""],
+    ["Attendance (%)", d.attendancePct ?? "", `${d.attendanceDays} day(s) recorded`, "", "", ""],
+    blank,
+    ["Subject", "Assessments", "Average (%)", "", "", ""],
+    ...d.subjects.map((s): Cell[] => [s.subject, s.count, Math.round(s.average * 10) / 10, "", "", ""]),
+    blank,
+    ["Subject", "Assessment", "Type", "Date", "Score", "Percent"],
+    ...d.results.map((r): Cell[] => [r.subject, r.title, r.kind, r.date ? dateText(r.date) : "", `${num(r.score)}/${num(r.max)}`, Math.round(r.percent * 10) / 10]),
+  ];
+  return { headers: ["Performance summary", "", "", "", "", ""], rows };
+};
+
+const performancePdf = (d: PerformanceData) => {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  let y = pageHeader(doc, d.school, "Performance summary", [d.student.name + (d.student.class ? ` · ${d.student.class}` : "")]);
+  autoTable(doc, {
+    startY: y + 4, theme: "grid", styles: { fontSize: 10 }, margin: { left: 14, right: 14 },
+    head: [["Average", "Class position", "Attendance"]],
+    body: [[d.average != null ? `${num(d.average)}%` : "No published results", d.rank != null ? `${d.rank} of ${d.classSize}` : "-", d.attendancePct != null ? `${d.attendancePct}% (${d.attendanceDays} days)` : "No register yet"]],
+  });
+  y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8;
+  if (d.subjects.length) {
+    doc.setFont("helvetica", "bold").setFontSize(12).text("Average by subject", 14, y);
+    y += 5;
+    const labelW = 48, maxW = 120;
+    d.subjects.forEach((s) => {
+      if (y > 262) { doc.addPage(); y = 20; }
+      doc.setFont("helvetica", "normal").setFontSize(9).text(s.subject.slice(0, 26), 14, y + 4);
+      doc.setFillColor(226, 232, 240).rect(14 + labelW, y, maxW, 5, "F");
+      const col = s.average >= 70 ? [34, 139, 94] : s.average >= 50 ? [30, 100, 200] : [200, 60, 60];
+      doc.setFillColor(col[0], col[1], col[2]).rect(14 + labelW, y, Math.max(0.5, (maxW * Math.min(100, s.average)) / 100), 5, "F");
+      doc.text(`${num(s.average)}%`, 14 + labelW + maxW + 3, y + 4);
+      y += 8;
+    });
+    y += 4;
+  }
+  autoTable(doc, {
+    startY: y, margin: { left: 14, right: 14 }, styles: { fontSize: 9 }, headStyles: { fillColor: [30, 64, 175] },
+    head: [["Subject", "Assessment", "Type", "Date", "Score", "%"]],
+    body: d.results.map((r) => [r.subject, r.title, r.kind, r.date ? dateText(r.date) : "", `${num(r.score)}/${num(r.max)}`, `${num(r.percent)}`]),
+  });
+  addPageNumbers(doc, d.issued_at);
+  doc.save(`performance-${safeName(d.student.name)}.pdf`);
+};
+
+export const exportPerformance = async (d: PerformanceData, format: Format) => {
+  const base = `performance-${safeName(d.student.name)}`;
+  if (format === "pdf") return performancePdf(d);
+  const { headers, rows } = performanceRows(d);
+  if (format === "csv") downloadCsv(`${base}.csv`, headers, rows);
+  else await downloadXlsx(`${base}.xlsx`, "Performance", headers, rows);
+};

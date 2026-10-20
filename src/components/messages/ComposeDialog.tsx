@@ -1,3 +1,4 @@
+import { AttachmentInput } from "@/components/messages/Attachments";
 import { useMemo, useState } from "react";
 import { Loader2, Search, X } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -29,6 +30,7 @@ const ComposeDialog = ({ open, onOpenChange, schoolId, allowGroup, onStarted }: 
   const [chosen, setChosen] = useState<string[]>([]);
   const [subject, setSubject] = useState("");
   const [body, setBody] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
 
   const all = useMemo(() => recipients.data ?? [], [recipients.data]);
   const byId = useMemo(() => new Map(all.map((r) => [r.profile_id, r])), [all]);
@@ -45,6 +47,7 @@ const ComposeDialog = ({ open, onOpenChange, schoolId, allowGroup, onStarted }: 
     setChosen([]);
     setSubject("");
     setBody("");
+    setFiles([]);
   };
 
   const pick = (id: string) => {
@@ -52,11 +55,11 @@ const ComposeDialog = ({ open, onOpenChange, schoolId, allowGroup, onStarted }: 
     setSearch("");
   };
 
-  const canSend = chosen.length > 0 && body.trim().length > 0 && !start.isPending;
+  const canSend = chosen.length > 0 && (body.trim().length > 0 || files.length > 0) && !start.isPending;
 
   const submit = async () => {
     try {
-      const id = await start.mutateAsync({ recipients: chosen, subject: subject.trim(), body: body.trim() });
+      const id = await start.mutateAsync({ recipients: chosen, subject: subject.trim(), body: body.trim() || "(attachment)", files });
       toast({ title: "Message sent" });
       reset();
       onOpenChange(false);
@@ -141,6 +144,7 @@ const ComposeDialog = ({ open, onOpenChange, schoolId, allowGroup, onStarted }: 
             <Label htmlFor="msg-body">Message</Label>
             <Textarea id="msg-body" value={body} onChange={(e) => setBody(e.target.value)} rows={5} maxLength={5000} />
           </div>
+          <div className="flex items-start gap-2"><AttachmentInput files={files} setFiles={setFiles} disabled={start.isPending} /><p className="pt-3 text-xs text-muted-foreground">Attach images, PDF or Office files (up to 5 files, 5 MB each).</p></div>
         </div>
 
         <DialogFooter>

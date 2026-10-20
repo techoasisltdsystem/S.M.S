@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
 import { AuthError, passwordResetAvailable, requestPasswordReset } from "@/lib/db";
 import { motion } from "framer-motion";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import schoolHero from "@/assets/school-hero.jpg";
 import Logo from "@/components/ui/logo";
@@ -11,6 +11,7 @@ import { LOGIN_ROLES as ROLES } from "@/components/auth/loginRoles";
 
 const Login = () => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [params] = useSearchParams();
@@ -42,19 +43,7 @@ const Login = () => {
     }
   };
 
-  const forgotPassword = async () => {
-    if (help) return setHelp(null);
-    if (!passwordResetAvailable) {
-      return setHelp("Password reset by email is not available on this server yet. Ask your school administrator to send you a new invitation.");
-    }
-    if (!email.trim()) return setHelp("Enter your email above, then choose Forgot password again.");
-    try {
-      await requestPasswordReset(email.trim());
-      setHelp("If that email has an account, a reset link is on its way. Check your inbox.");
-    } catch (err) {
-      setHelp(err instanceof Error ? err.message : "We could not send the reset email.");
-    }
-  };
+  const forgotPassword = () => navigate(`/forgot-password${email.trim() ? `?email=${encodeURIComponent(email.trim())}` : ""}`);
 
   // Administrator, teacher and parent each get their own full-screen sign-in;
   // the student view keeps the original split layout below.

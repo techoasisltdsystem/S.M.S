@@ -18,8 +18,8 @@ export const formatBytes = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math
  * Downloads a stored file. The database re-checks who is asking on every call and
  * returns the content directly, so there is no link that could be shared or reused.
  */
-export const downloadStoredFile = async (fileId: string) => {
-  const { data, error } = await db.rpc("get_file", { _file: fileId });
+export const downloadStoredFile = async (fileId: string, fn: "get_file" | "get_message_file" = "get_file") => {
+  const { data, error } = await db.rpc(fn as never, { _file: fileId } as never);
   if (error) throw new Error(error.message);
   const f = data as unknown as { name: string; mime: string; content: string };
   const bytes = Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0));
@@ -31,4 +31,13 @@ export const downloadStoredFile = async (fileId: string) => {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
+};
+
+/** The bytes of a message file as a temporary address the page can show (for image previews). */
+export const messageFileUrl = async (fileId: string): Promise<string> => {
+  const { data, error } = await db.rpc("get_message_file" as never, { _file: fileId } as never);
+  if (error) throw new Error((error as { message: string }).message);
+  const f = data as unknown as { mime: string; content: string };
+  const bytes = Uint8Array.from(atob(f.content), (c) => c.charCodeAt(0));
+  return URL.createObjectURL(new Blob([bytes], { type: f.mime }));
 };

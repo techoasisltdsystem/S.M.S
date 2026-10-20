@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import AdminLogin from "./pages/AdminLogin";
 import AcceptInvite from "./pages/AcceptInvite";
 import ResetPassword from "./pages/ResetPassword";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import AdminModulesPage from "./pages/AdminModulesPage";
 import ClassesPage from "./pages/ClassesPage";
@@ -121,6 +122,7 @@ const AppRoutes = () => (
     <Route path="/checkout/return" element={<CheckoutReturnPage />} />
     <Route path="/checkout/demo" element={<DemoCheckoutPage />} />
     <Route path="/accept-invite" element={<AcceptInvite />} />
+    <Route path="/forgot-password" element={<ForgotPassword />} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
