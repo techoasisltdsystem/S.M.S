@@ -320,4 +320,19 @@ BEGIN
   PERFORM pg_temp.ok(pg_temp.fails('SELECT public.platform_overview()'), 'a password-only platform session is refused');
 END $$;
 
+-- Setup records are audited by the database, with the signed-in person as actor.
+DO $$
+BEGIN
+  PERFORM pg_temp.act_as('admin-a@test.invalid');
+  INSERT INTO public.subjects (school_id, name) VALUES (pg_temp.id('school_a'), 'Audit Probe');
+  PERFORM pg_temp.ok(EXISTS (SELECT 1 FROM public.audit_logs WHERE school_id = pg_temp.id('school_a')
+    AND action = 'record_created' AND target_type = 'subjects' AND target_name = 'Audit Probe'
+    AND actor_user_id = auth.uid()), 'adding a subject is audited with the actor');
+  UPDATE public.subjects SET name = 'Audit Probe 2' WHERE name = 'Audit Probe';
+  PERFORM pg_temp.ok(EXISTS (SELECT 1 FROM public.audit_logs WHERE school_id = pg_temp.id('school_a')
+    AND action = 'record_updated' AND details -> 'changed' ? 'name'), 'changing a subject is audited');
+  PERFORM pg_temp.ok(pg_temp.fails($q$INSERT INTO public.audit_logs (school_id, action, target_type) VALUES (pg_temp.id('school_a'), 'record_created', 'x')$q$),
+    'nobody can write audit entries directly');
+END $$;
+
 ROLLBACK;

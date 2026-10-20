@@ -18,7 +18,7 @@ const AcceptInvite = () => {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!token) return setError("This link is missing its invitation code. Ask for a new invitation.");
-    if (dbProvider === "supabase" && !email.trim()) return setError("Enter the email address the invitation was sent to.");
+    if (dbProvider !== "local" && !email.trim()) return setError("Enter the email address the invitation was sent to.");
     if (password.length < 8) return setError("Use at least 8 characters for your password.");
     if (password !== confirm) return setError("The two passwords do not match.");
     setBusy(true);
@@ -41,7 +41,7 @@ const AcceptInvite = () => {
             {error}
           </p>
         )}
-        {dbProvider === "supabase" && (
+        {dbProvider !== "local" && (
           <div>
             <label htmlFor="invite-email" className="mb-1 block text-sm font-medium">Email address</label>
             <input id="invite-email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={authField} />

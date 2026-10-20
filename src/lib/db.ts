@@ -3,21 +3,50 @@
 // so the backing database can be swapped by changing only this file.
 //
 // VITE_DB_PROVIDER selects the backend:
-//   "supabase" (default) — hosted Supabase project: Supabase Auth for sign-in
-//   "local"              — local Postgres served by PostgREST, proxied by Vite
-//                          at /rest/v1; sign-in is checked in the database by
-//                          scripts/local-db/local-auth.sql
+//   "neon"  (default in the deployed build) — Neon Postgres through the Neon
+//                          Data API; sign-in is Neon Auth (Better Auth)
+//   "local" (default for `npm run dev`) — local Postgres served by PostgREST,
+//                          proxied by Vite at /rest/v1; sign-in is checked in
+//                          the database by scripts/local-db/local-auth.sql
+//   "supabase"           — hosted Supabase project: Supabase Auth for sign-in
 //
 // Either way the browser only holds a signed session token. Which school a
 // user belongs to, their role and their permissions are decided by the
 // database (Row-Level Security), never by values sent from here.
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { createClient as createNeonClient, SupabaseAuthAdapter } from '@neondatabase/neon-js'
 import type { Database } from '@/integrations/supabase/types'
 
-export type DbProvider = 'supabase' | 'local'
+export type DbProvider = 'supabase' | 'local' | 'neon'
 
+// The deployed site talks to Neon; `npm run dev` talks to the laptop database.
+// VITE_DB_PROVIDER overrides either way.
+const requested = import.meta.env.VITE_DB_PROVIDER as string | undefined
 export const dbProvider: DbProvider =
-  import.meta.env.VITE_DB_PROVIDER === 'local' ? 'local' : 'supabase'
+  requested === 'supabase' || requested === 'local' || requested === 'neon'
+    ? requested
+    : import.meta.env.PROD
+      ? 'neon'
+      : 'local'
+
+// Public endpoints of the Neon project (no secrets): the Data API for rows
+// and Neon Auth for sign-in. Row access is still decided by the database.
+const NEON_DATA_API_URL =
+  import.meta.env.VITE_NEON_DATA_API_URL ||
+  'https://ep-ancient-darkness-bagaak83.apirest.c-8.eu-central-1.aws.neon.tech/neondb/rest/v1'
+const NEON_AUTH_URL =
+  import.meta.env.VITE_NEON_AUTH_URL ||
+  'https://ep-ancient-darkness-bagaak83.neonauth.c-8.eu-central-1.aws.neon.tech/neondb/auth'
+
+// One Neon client carries both the Data API and the sign-in session; its
+// requests carry the signed-in user's token automatically.
+const neon =
+  dbProvider === 'neon'
+    ? createNeonClient<Database>({
+        auth: { url: NEON_AUTH_URL, adapter: SupabaseAuthAdapter() },
+        dataApi: { url: NEON_DATA_API_URL },
+      })
+    : null
 
 const LOCAL_SESSION_KEY = 'tosms.local.session'
 
@@ -52,7 +81,9 @@ const writeLocalSession = (s: LocalSession | null) => {
   }
 }
 
-const createDb = () => {
+const createDb = (): SupabaseClient<Database> => {
+  // The Neon client speaks the same query dialect as supabase-js.
+  if (neon) return neon as unknown as SupabaseClient<Database>
   if (dbProvider === 'local') {
     // PostgREST speaks the same REST dialect as supabase-js' query builder.
     // Requests carry the local session token, or none when signed out.
@@ -98,6 +129,19 @@ const LOCAL_ERRORS: Record<string, string> = {
 
 /** Signs in with email and password; resolves to the auth user id. */
 export const signIn = async (email: string, password: string): Promise<string> => {
+  if (neon) {
+    const { data, error } = await neon.auth.signInWithPassword({ email, password })
+    if (error || !data?.user) {
+      throw new AuthError(
+        error && !error.status
+          ? 'The sign-in service is not reachable. Try again shortly.'
+          : error?.status === 429
+            ? 'Too many attempts. Wait a few minutes and try again.'
+            : 'That email and password do not match an account.',
+      )
+    }
+    return data.user.id
+  }
   if (dbProvider === 'local') {
     const { data, error } = await db.rpc('local_login', { _email: email, _password: password })
     if (error) throw new AuthError('The sign-in service is not reachable. Is the local database running?')
@@ -122,6 +166,10 @@ export const signIn = async (email: string, password: string): Promise<string> =
 }
 
 export const signOut = async () => {
+  if (neon) {
+    await neon.auth.signOut()
+    return
+  }
   if (dbProvider === 'local') {
     if (readLocalSession()) await db.rpc('local_logout')
     writeLocalSession(null)
@@ -132,6 +180,10 @@ export const signOut = async () => {
 
 /** The signed-in auth user id, or null. */
 export const currentAuthUserId = async (): Promise<string | null> => {
+  if (neon) {
+    const { data } = await neon.auth.getSession()
+    return data.session?.user.id ?? null
+  }
   if (dbProvider === 'local') return readLocalSession()?.user.id ?? null
   const { data } = await db.auth.getSession()
   return data.session?.user.id ?? null
@@ -139,6 +191,10 @@ export const currentAuthUserId = async (): Promise<string | null> => {
 
 /** Notifies when the session ends or changes outside the app's own calls. */
 export const onAuthChange = (cb: (userId: string | null) => void) => {
+  if (neon) {
+    const { data } = neon.auth.onAuthStateChange((_event, session) => cb(session?.user.id ?? null))
+    return () => data.subscription.unsubscribe()
+  }
   if (dbProvider === 'local') return () => {}
   const { data } = db.auth.onAuthStateChange((_event, session) => cb(session?.user.id ?? null))
   return () => data.subscription.unsubscribe()
@@ -155,10 +211,11 @@ export const acceptInvitation = async (token: string, email: string, password: s
     writeLocalSession(data as unknown as LocalSession)
     return
   }
-  const signUp = await db.auth.signUp({ email, password })
+  const auth = neon ? neon.auth : db.auth
+  const signUp = await auth.signUp({ email, password, options: { data: { name: email.split('@')[0] } } })
   if (signUp.error) {
     // Already has a login (e.g. a parent invited by a second school): sign in instead.
-    const signInRes = await db.auth.signInWithPassword({ email, password })
+    const signInRes = await auth.signInWithPassword({ email, password })
     if (signInRes.error) throw new AuthError('This email already has a login. Enter its current password.')
   } else if (!signUp.data.session) {
     throw new AuthError('Check your email to confirm your address, then open the invitation link again.')
@@ -167,18 +224,18 @@ export const acceptInvitation = async (token: string, email: string, password: s
   if (error) throw new AuthError(error.message)
 }
 
-/** Sends a password-reset email. Only available with hosted Supabase. */
-export const passwordResetAvailable = dbProvider === 'supabase'
+/** Sends a password-reset email. Not available on the laptop database. */
+export const passwordResetAvailable = dbProvider !== 'local'
 export const requestPasswordReset = async (email: string) => {
   if (!passwordResetAvailable) throw new AuthError('Password reset by email is not available on the laptop database.')
-  const { error } = await db.auth.resetPasswordForEmail(email, {
+  const { error } = await (neon ? neon.auth : db.auth).resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   })
   if (error) throw new AuthError('We could not send the reset email. Try again later.')
 }
 
 export const updatePassword = async (password: string) => {
-  const { error } = await db.auth.updateUser({ password })
+  const { error } = await (neon ? neon.auth : db.auth).updateUser({ password })
   if (error) throw new AuthError(error.message)
 }
 
@@ -228,8 +285,8 @@ const readAsDataUrl = (file: File) =>
 // Uploads a school asset (logo, banner) under the school's folder and returns
 // a URL the UI can display. Storage rules only let that school's admins write there.
 export const uploadSchoolAsset = async (file: File, schoolId: string, name: string): Promise<string> => {
-  // No object storage locally: store the image inline as a data URL.
-  if (dbProvider === 'local') return readAsDataUrl(file)
+  // No object storage on the laptop or on Neon yet: store the image inline as a data URL.
+  if (dbProvider !== 'supabase') return readAsDataUrl(file)
 
   const ext = file.name.split('.').pop()
   const path = `${schoolId}/${name}-${Date.now()}.${ext}`
