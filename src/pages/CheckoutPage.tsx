@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { beginPayment, priceText, saveDraft, startSignup, usePricing, type Interval, type OrderStart } from "@/hooks/useBilling";
 import { cn } from "@/lib/utils";
 
-const STEPS = ["Package", "Your school", "Review and pay"];
+const STEPS = ["Your school", "Package", "Review and pay"];
 
 const Stepper = ({ step }: { step: number }) => (
   <ol className="mb-8 flex items-center gap-2 text-sm" aria-label="Checkout progress">
@@ -66,7 +66,7 @@ const CheckoutPage = () => {
   };
 
   const toReview = async () => {
-    if (!validate() || busy) return;
+    if (busy) return;
     setBusy(true); setError(null);
     try {
       // The server prices the order. What you see next is what you pay.
@@ -91,7 +91,7 @@ const CheckoutPage = () => {
   return (
     <PublicShell>
       <Link to="/pricing" className="mb-4 inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"><ArrowLeft className="h-4 w-4" aria-hidden /> Back to pricing</Link>
-      <h1 className="font-heading text-2xl font-bold sm:text-3xl">Get started</h1>
+      <h1 className="font-heading text-2xl font-bold sm:text-3xl">Create your school account</h1>
       <p className="mb-6 mt-1 text-sm text-muted-foreground">Already have a school here? <Link to="/login" className="font-medium text-primary hover:underline">Sign in to renew or change your package.</Link></p>
       <Stepper step={step} />
       {pricing.isLoading && <LoadingRows rows={3} />}
@@ -100,7 +100,7 @@ const CheckoutPage = () => {
       {pricing.data && (
         <div className="grid gap-6 lg:grid-cols-[1fr_20rem]">
           <div>
-            {step === 0 && (
+            {step === 1 && (
               <section aria-label="Choose a package" className="space-y-4">
                 <div className="flex justify-center sm:justify-start"><IntervalToggle value={interval} onChange={setInterval} /></div>
                 <div role="radiogroup" aria-label="Package" className="space-y-3">
@@ -125,12 +125,16 @@ const CheckoutPage = () => {
                     {chosen.highlights.map((h) => <li key={h} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden />{h}</li>)}
                   </ul>
                 )}
-                <Button size="lg" className="h-12 w-full sm:w-auto" disabled={!chosen || priceFor(chosen, interval) == null} onClick={() => setStep(1)}>Continue</Button>
+                {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
+                <div className="flex flex-col-reverse gap-3 sm:flex-row">
+                  <Button type="button" variant="outline" size="lg" className="h-12" onClick={() => setStep(0)}>Back</Button>
+                  <Button size="lg" className="h-12 flex-1 sm:flex-none" disabled={busy || !chosen || priceFor(chosen, interval) == null} onClick={() => void toReview()}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Review order</Button>
+                </div>
               </section>
             )}
 
-            {step === 1 && (
-              <form aria-label="School and administrator details" className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); void toReview(); }}>
+            {step === 0 && (
+              <form aria-label="School and administrator details" className="space-y-4" noValidate onSubmit={(e) => { e.preventDefault(); if (validate()) { setOrder(null); setStep(1); } }}>
                 <div className="space-y-1.5">
                   <Label htmlFor="co-school">School name</Label>
                   <Input id="co-school" value={form.school} onChange={set("school")} autoComplete="organization" aria-invalid={!!errors.school} aria-describedby={errors.school ? "e-school" : undefined} className="h-12" />
@@ -152,12 +156,8 @@ const CheckoutPage = () => {
                     <Input id="co-phone" type="tel" inputMode="tel" value={form.phone} onChange={set("phone")} autoComplete="tel" className="h-12" />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">Your sign-up link is shown on the confirmation page once payment is confirmed. The administrator chooses a password there.</p>
-                {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
-                <div className="flex flex-col-reverse gap-3 sm:flex-row">
-                  <Button type="button" variant="outline" size="lg" className="h-12" onClick={() => setStep(0)}>Back</Button>
-                  <Button type="submit" size="lg" className="h-12 flex-1 sm:flex-none" disabled={busy}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Review order</Button>
-                </div>
+                <p className="text-xs text-muted-foreground">After payment we email a confirmation link to this address, and it is also shown on the confirmation page. The administrator chooses their password there.</p>
+                <Button type="submit" size="lg" className="h-12 w-full sm:w-auto">Continue to packages</Button>
               </form>
             )}
 
@@ -171,14 +171,17 @@ const CheckoutPage = () => {
                     <div><dt className="text-muted-foreground">Email</dt><dd className="font-medium">{form.email}</dd></div>
                     {form.phone && <div><dt className="text-muted-foreground">Phone</dt><dd className="font-medium">{form.phone}</dd></div>}
                   </dl>
-                  <button type="button" className="mt-3 text-sm font-medium text-primary hover:underline" onClick={() => setStep(1)}>Change details</button>
+                  <button type="button" className="mt-3 text-sm font-medium text-primary hover:underline" onClick={() => setStep(0)}>Change details</button>
                 </div>
                 {error && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>}
                 <Button size="lg" className="h-14 w-full text-base" onClick={pay} disabled={busy}>
                   {busy ? <Loader2 className="mr-2 h-5 w-5 animate-spin" aria-hidden /> : <Lock className="mr-2 h-5 w-5" aria-hidden />}
                   Pay securely
                 </Button>
-                <p className="text-center text-xs text-muted-foreground">You will choose how to pay on the next page. Your plan starts only after the payment is confirmed.</p>
+                <div className="rounded-xl border border-border bg-muted/40 p-4 text-sm">
+                  <p className="font-medium">Choose how to pay on the next page</p>
+                  <p className="mt-1 text-muted-foreground">Paystack shows the methods available for your payment, such as card, mobile money and bank transfer. Pick the one you prefer there. Your account is created only after the payment is confirmed.</p>
+                </div>
               </section>
             )}
           </div>

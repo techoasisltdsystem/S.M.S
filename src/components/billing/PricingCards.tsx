@@ -70,7 +70,7 @@ const PricingCards = ({ cta = "Choose" }: { cta?: string }) => {
                 ))}
               </ul>
               <Button asChild size="lg" className="mt-7 h-12 w-full" variant={p.recommended ? "default" : "outline"}>
-                <Link to={`/checkout?plan=${p.code}&interval=${effective}`}>{cta} {p.name}</Link>
+                <Link to={`/signup?plan=${p.code}&interval=${effective}`}>{cta} {p.name}</Link>
               </Button>
             </article>
           );

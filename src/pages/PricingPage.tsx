@@ -1,6 +1,8 @@
 import { Link } from "react-router-dom";
 import { CalendarClock, Check, LifeBuoy, Lock, Minus, ShieldCheck, Smartphone, Users } from "lucide-react";
-import PublicShell from "@/components/billing/PublicShell";
+import SiteLayout, { CtaBand } from "@/components/site/SiteLayout";
+import PageHero from "@/components/site/PageHero";
+import { HERO_SETS } from "@/components/site/siteImages";
 import PricingCards, { limitText } from "@/components/billing/PricingCards";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { FEATURES } from "@/hooks/usePlatformConsole";
@@ -58,16 +60,11 @@ const PricingPage = () => {
     { q: "Can I get a refund?", a: s?.refund_text ?? "Contact support to ask about a refund." },
   ];
   return (
-    <PublicShell>
-      <section className="text-center">
-        <p className="text-sm font-semibold uppercase tracking-wide text-primary">Pricing</p>
-        <h1 className="mx-auto mt-2 max-w-3xl font-heading text-3xl font-bold text-foreground sm:text-5xl">Simple pricing for every school</h1>
-        <p className="mx-auto mt-4 max-w-2xl text-base text-muted-foreground sm:text-lg">
-          Pick a package, pay securely, and start the same day. Prices are per school and shown before you pay, with nothing added at the end.
-        </p>
-      </section>
-
-      <div className="mt-12"><PricingCards /></div>
+    <SiteLayout>
+      <PageHero images={HERO_SETS.pricing} eyebrow="Pricing" title={<>Simple pricing for <span className="text-blue-400">every school</span></>}
+        text="Pick a package, pay securely with Paystack, and start the same day. Prices are per school and shown before you pay, with nothing added at the end." />
+      <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6">
+      <div><PricingCards /></div>
 
       <section aria-label="Benefits" className="mt-20 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         {BENEFITS.map((b) => (
@@ -109,7 +106,9 @@ const PricingPage = () => {
           {s?.support_phone ? <> or call <a className="font-medium text-primary hover:underline" href={`tel:${s.support_phone}`}>{s.support_phone}</a></> : null}.
         </p>
       </section>
-    </PublicShell>
+      </div>
+      <CtaBand />
+    </SiteLayout>
   );
 };
 
