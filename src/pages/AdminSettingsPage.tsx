@@ -158,8 +158,8 @@ const AdminSettingsPage = () => {
           <QuickLink
             icon={Database}
             title="Data Export"
-            description="Export reports & backups"
-            onClick={() => toast({ title: 'Coming soon', description: 'Data export feature is in development.' })}
+            description="Results, class and fee reports"
+            onClick={() => navigate('/exams')}
           />
         </div>
 

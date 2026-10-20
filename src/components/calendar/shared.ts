@@ -3,7 +3,8 @@ export const errorText = (err: unknown, fallback = "Try again.") =>
 
 export const AUDIENCES = [
   { value: "everyone", label: "Everyone" },
-  { value: "staff", label: "Staff only" },
+  { value: "staff", label: "All staff" },
+  { value: "teachers", label: "Teachers only" },
   { value: "students", label: "Students" },
   { value: "parents", label: "Parents" },
 ] as const;

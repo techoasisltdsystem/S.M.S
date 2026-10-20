@@ -1,13 +1,13 @@
+export { default as Hero } from "./HeroSection";
 import { Link } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import {
-  ArrowRight, ShieldCheck, History, Building2, GraduationCap, DollarSign, Users, BookOpen, Calendar,
-  ClipboardList, UserCheck, Library, Bell, BarChart3, LayoutDashboard, UserPlus, KeyRound, Rocket, Mail,
+  ShieldCheck, History, Building2, GraduationCap, DollarSign, Users, BookOpen, Calendar,
+  ClipboardList, UserCheck, Library, Bell, BarChart3, LayoutDashboard, UserPlus, KeyRound, Mail,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import Logo from "@/components/ui/logo";
-import HeroSlideshow from "./HeroSlideshow";
 import ProductPreview from "./ProductPreview";
 import ContactForm from "./ContactForm";
 import PricingTable from "./PricingTable";
@@ -38,46 +38,6 @@ const Heading = ({ eyebrow, title, text }: { eyebrow: string; title: string; tex
 const Section = ({ id, children, tint }: { id: string; children: React.ReactNode; tint?: boolean }) => (
   <section id={id} className={`scroll-mt-16 px-4 py-16 sm:px-6 sm:py-20 ${tint ? "bg-muted/40" : ""}`}>
     <div className="mx-auto max-w-6xl">{children}</div>
-  </section>
-);
-
-export const Hero = () => (
-  <section id="top" className="relative overflow-hidden px-4 pb-16 pt-28 sm:px-6 sm:pt-32">
-    <div className="absolute inset-0 -z-10" aria-hidden>
-      <div className="absolute left-1/2 top-0 h-[520px] w-[820px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
-    </div>
-    <div className="mx-auto grid max-w-6xl items-center gap-10 lg:grid-cols-2">
-      <motion.div initial={{ opacity: 0, y: 18 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
-        <p className="mb-4 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
-          <Rocket className="h-4 w-4" aria-hidden /> Early access: modules are being added step by step
-        </p>
-        <h1 className="font-heading text-4xl font-extrabold leading-tight tracking-tight text-foreground sm:text-5xl">
-          One calm place to run your <span className="text-primary">whole school</span>
-        </h1>
-        <p className="mt-5 max-w-xl text-lg text-muted-foreground">
-          Tech Oasis SMS keeps student records, staff and parent accounts, school settings and an audit trail together. Attendance, timetables, exams and fee collection are on the roadmap.
-        </p>
-        <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-          <Button asChild size="lg" className="h-12 px-7">
-            <a href="#contact">
-              Request a demo <ArrowRight className="ml-2 h-4 w-4" aria-hidden />
-            </a>
-          </Button>
-          <Button asChild size="lg" variant="outline" className="h-12 px-7">
-            <a href="#preview">See the product preview</a>
-          </Button>
-        </div>
-        <p className="mt-4 text-sm text-muted-foreground">
-          Already have an account?{" "}
-          <Link to="/login" className="font-medium text-primary hover:underline">
-            Sign in
-          </Link>
-        </p>
-      </motion.div>
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6, delay: 0.1 }}>
-        <HeroSlideshow />
-      </motion.div>
-    </div>
   </section>
 );
 
@@ -220,7 +180,7 @@ const FAQS = [
   { q: "Is Tech Oasis SMS ready to run a whole school today?", a: "Not yet. User and role management, the audit log and school setup are in place. Student records and fees are early versions, and attendance, timetables, exams and reports are planned. The modules page shows the current status of each." },
   { q: "Can I try it?", a: "Request a demo and we will show you what exists now and answer your questions. The product preview above uses sample data only." },
   { q: "Which roles are supported?", a: "Administrator, teacher, student and parent." },
-  { q: "How much does it cost?", a: "Plans are priced per school and shown in US Dollars, Ghana Cedis or Nigerian Naira, monthly or yearly. The amounts shown are sample prices until packages are final, so use the contact form for a confirmed quote." },
+  { q: "How much does it cost?", a: "Packages are priced per school, monthly or yearly. The prices on the pricing section are the ones you pay, and you can buy a package online with Paystack." },
   { q: "Where is our data kept?", a: "School data is stored in a hosted PostgreSQL database. We are moving to a new database provider, so we will confirm the details with you before you load real records." },
 ];
 
@@ -259,9 +219,11 @@ export const Footer = () => (
       <nav aria-label="Footer" className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-sm text-muted-foreground">
         <a href="#features" className="hover:text-foreground">Features</a>
         <a href="#modules" className="hover:text-foreground">Modules</a>
+        <Link to="/pricing" className="hover:text-foreground">Pricing</Link>
         <a href="#faq" className="hover:text-foreground">FAQ</a>
         <a href="#contact" className="hover:text-foreground">Contact</a>
         <Link to="/login" className="hover:text-foreground">Sign in</Link>
+        <Link to="/super-admin/login" className="text-xs hover:text-foreground">Platform administration</Link>
       </nav>
       <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Tech Oasis Web Solutions</p>
     </div>

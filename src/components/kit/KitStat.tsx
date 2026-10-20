@@ -12,7 +12,17 @@ const tones: Record<Tone, string> = {
   destructive: "bg-destructive/10 text-destructive",
 };
 
+const tints: Record<Tone, string> = {
+  primary: "border-primary/20 bg-gradient-to-br from-primary/10 via-card to-card",
+  success: "border-success/20 bg-gradient-to-br from-success/10 via-card to-card",
+  warning: "border-warning/25 bg-gradient-to-br from-warning/10 via-card to-card",
+  info: "border-info/20 bg-gradient-to-br from-info/10 via-card to-card",
+  destructive: "border-destructive/20 bg-gradient-to-br from-destructive/10 via-card to-card",
+};
+
 interface KitStatProps {
+  /** Soft coloured background, as on the teacher dashboard. */
+  tinted?: boolean;
   icon: LucideIcon;
   tone?: Tone;
   label: string;
@@ -24,7 +34,7 @@ interface KitStatProps {
   meter?: number;
 }
 
-const KitStat = ({ icon: Icon, tone = "primary", label, value, sub, to, meter }: KitStatProps) => {
+const KitStat = ({ icon: Icon, tone = "primary", label, value, sub, to, meter, tinted }: KitStatProps) => {
   const body = (
     <>
       <div className="flex items-start justify-between gap-3">
@@ -44,7 +54,7 @@ const KitStat = ({ icon: Icon, tone = "primary", label, value, sub, to, meter }:
       {sub && <p className="mt-2 text-xs text-muted-foreground">{sub}</p>}
     </>
   );
-  const cls = "block rounded-xl border border-border bg-card p-5 shadow-card transition-shadow hover:shadow-elevated";
+  const cls = cn("block rounded-2xl border p-5 shadow-card transition-shadow hover:shadow-elevated", tinted ? tints[tone] : "border-border bg-card");
   return to ? (
     <Link to={to} className={cls}>
       {body}

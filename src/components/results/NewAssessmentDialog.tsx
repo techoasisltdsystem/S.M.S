@@ -10,6 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useYearAndTerm } from "@/hooks/useSchoolData";
 import type { Database } from "@/integrations/supabase/types";
 import { errorText, KINDS, type Lookups } from "./shared";
+import SubmissionFields, { defaultSubmission, submissionColumns, type SubmissionConfig } from "./SubmissionSettings";
 
 type Kind = Database["public"]["Enums"]["assessment_kind"];
 const NO_TERM = "none";
@@ -34,6 +35,7 @@ const NewAssessmentDialog = ({ open, onOpenChange, schoolId, pairs, lookups, onS
   const [due, setDue] = useState("");
   const [term, setTerm] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [work, setWork] = useState<SubmissionConfig>(defaultSubmission());
 
   const options = useMemo(
     () =>
@@ -52,6 +54,8 @@ const NewAssessmentDialog = ({ open, onOpenChange, schoolId, pairs, lookups, onS
     if (!pair) return toast({ title: "Choose a class and subject", variant: "destructive" });
     if (!title.trim()) return toast({ title: "Give the assessment a title", variant: "destructive" });
     if (!Number.isFinite(maxScore) || maxScore <= 0) return toast({ title: "Maximum score must be above 0", variant: "destructive" });
+    const cols = submissionColumns(work);
+    if ("error" in cols) return toast({ title: cols.error, variant: "destructive" });
     const [class_id, subject_id] = pair.split("|");
     setSaving(true);
     try {
@@ -64,13 +68,15 @@ const NewAssessmentDialog = ({ open, onOpenChange, schoolId, pairs, lookups, onS
         max_score: maxScore,
         due_on: due || null,
         term_id: termValue === NO_TERM ? null : termValue,
+        ...cols.columns,
       });
       if (error) throw error;
-      toast({ title: "Assessment created", description: "It starts as a draft. Enter marks, then submit for approval." });
+      toast({ title: "Assessment created", description: work.format === "none" ? "It starts as a draft. Enter marks, then submit for approval." : "It starts as a draft. Add attachments if you need them, then release it to your class." });
       onSaved();
       onOpenChange(false);
       setTitle("");
       setDue("");
+      setWork(defaultSubmission());
     } catch (err) {
       toast({ title: "Could not create the assessment", description: errorText(err), variant: "destructive" });
     } finally {
@@ -80,7 +86,7 @@ const NewAssessmentDialog = ({ open, onOpenChange, schoolId, pairs, lookups, onS
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="font-heading">New assessment</DialogTitle>
           <DialogDescription>For a class and subject you teach. It starts as a draft only you can see.</DialogDescription>
@@ -128,6 +134,7 @@ const NewAssessmentDialog = ({ open, onOpenChange, schoolId, pairs, lookups, onS
               </Select>
             </div>
           </div>
+          <SubmissionFields value={work} onChange={setWork} />
           <DialogFooter className="gap-2">
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
             <Button type="submit" disabled={saving}>

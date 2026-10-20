@@ -114,9 +114,11 @@ const CalendarPage = () => {
             </div>
             <Panel title="Notice board" icon={Megaphone} className="lg:col-span-2">
               <NoticeBoard
+                schoolId={schoolId}
                 notices={notices.data ?? []}
                 className={className}
-                canEdit={(n) => manage || (teacherPosting && n.created_by === me && !!n.class_id)}
+                canEdit={(n) => manage || n.created_by === me}
+                canWithdraw={(n) => manage || n.created_by === me}
                 onEdit={(n) => setNoticeEdit({ notice: n })}
               />
             </Panel>

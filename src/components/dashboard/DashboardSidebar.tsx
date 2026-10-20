@@ -5,11 +5,14 @@ import Logo from "@/components/ui/logo";
 import { LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { NAV } from "@/components/dashboard/nav";
+import { useYearAndTerm } from "@/hooks/useSchoolData";
+import { GraduationCap } from "lucide-react";
 
 const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
   const { user, logout, can } = useAuth();
   const { schoolConfig } = useSchool();
   const location = useLocation();
+  const yearTerm = useYearAndTerm(user && user.role !== "platform" ? user.schoolId : undefined).data;
 
   if (!user) return null;
   const groups = NAV[user.role]
@@ -30,10 +33,20 @@ const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
             {isPlatform ? "Tech Oasis" : schoolConfig?.school_name || user.schoolName}
           </span>
           <span className="block truncate text-[11px] text-sidebar-foreground/70">
-            {isPlatform ? "Platform console" : "School workspace"}
+            {isPlatform ? "Platform console" : schoolConfig?.tagline || "School management"}
           </span>
         </div>
       </div>
+
+      {!isPlatform && (
+        <div className="mx-3 mt-4 flex items-center gap-3 rounded-xl bg-primary px-3 py-3 text-primary-foreground shadow-sm">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/15"><GraduationCap className="h-5 w-5" aria-hidden /></span>
+          <span className="min-w-0">
+            <span className="block truncate text-sm font-semibold leading-tight">{yearTerm?.year?.name ? `Academic year ${yearTerm.year.name}` : "Academic year"}</span>
+            <span className="block truncate text-xs opacity-80">{yearTerm?.term?.name ?? "No term set yet"}</span>
+          </span>
+        </div>
+      )}
 
       <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-4" aria-label="Main">
         {groups.map((g, gi) => (
@@ -51,9 +64,9 @@ const DashboardSidebar = ({ onNavigate }: { onNavigate?: () => void }) => {
                     onClick={onNavigate}
                     aria-current={active ? "page" : undefined}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors",
+                      "relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors",
                       active
-                        ? "bg-primary font-medium text-primary-foreground"
+                        ? "bg-primary/10 font-semibold text-primary before:absolute before:left-0 before:top-1/2 before:h-6 before:w-1 before:-translate-y-1/2 before:rounded-r before:bg-primary"
                         : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
                     )}
                   >

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRefreshSchoolData, type SchoolClass } from "@/hooks/useSchoolData";
+import { rpc } from "@/lib/rpc";
 import { errMsg } from "./QueryState";
 import { inviteLink, type IssuedLink } from "./InviteLinkDialog";
 
@@ -25,7 +26,7 @@ export const AddStudentDialog = ({ open, schoolId, classes, onClose, onIssued }:
   const { toast } = useToast();
   const refresh = useRefreshSchoolData();
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", classId: NONE });
+  const [form, setForm] = useState({ name: "", email: "", classId: NONE, admission: "" });
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,8 +50,15 @@ export const AddStudentDialog = ({ open, schoolId, classes, onClose, onIssued }:
           toast({ title: "Student added, but not placed in a class", description: enrolErr.message, variant: "destructive" });
         }
       }
+      if (form.admission.trim()) {
+        try {
+          await rpc("set_admission_number", { _student: res.profile_id, _number: form.admission.trim() });
+        } catch (numErr) {
+          toast({ title: "Student added, but the admission number was not saved", description: errMsg(numErr), variant: "destructive" });
+        }
+      }
       onIssued({ link: inviteLink(res.token), name: form.name.trim() });
-      setForm({ name: "", email: "", classId: NONE });
+      setForm({ name: "", email: "", classId: NONE, admission: "" });
       refresh();
       onClose();
     } catch (err) {
@@ -75,6 +83,10 @@ export const AddStudentDialog = ({ open, schoolId, classes, onClose, onIssued }:
           <div className="space-y-2">
             <Label htmlFor="stu_email">Email</Label>
             <Input id="stu_email" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="stu_adm">Admission number (optional)</Label>
+            <Input id="stu_adm" maxLength={30} value={form.admission} onChange={(e) => setForm({ ...form, admission: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="stu_class">Class (optional)</Label>

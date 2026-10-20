@@ -1,7 +1,20 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
-import { componentTagger } from "lovable-tagger";
+
+// Serves /api/billing/* from the same handlers the deployed site runs as Vercel functions, so checkout
+// works on a laptop with no extra process. Secrets come from .env.local and never reach the browser.
+const billingApi = (mode: string): Plugin => ({
+  name: "billing-api",
+  configureServer(server) {
+    const env = loadEnv(mode, process.cwd(), "");
+    server.middlewares.use("/api/billing", async (req, res) => {
+      const { handle } = await import("./server/billing/http.mjs");
+      const action = (req.url ?? "").split("?")[0].replace(/^\//, "");
+      await handle(req, res, action, env);
+    });
+  },
+});
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -26,7 +39,7 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
-  plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+  plugins: [react(), billingApi(mode)],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

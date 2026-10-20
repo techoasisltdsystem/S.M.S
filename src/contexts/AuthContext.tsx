@@ -5,6 +5,7 @@ import {
   db,
   mfaState,
   onAuthChange,
+  setAuditSchool,
   signIn,
   signOut,
   type MfaState,
@@ -22,15 +23,23 @@ export const MEMBER_ROLE_LABEL: Record<MemberRole | "platform_admin", string> = 
   teacher: "Teacher",
   student: "Student",
   parent: "Parent or guardian",
-  finance_officer: "Finance officer",
+  finance_officer: "Accountant / bursar",
+  headteacher: "Headteacher",
+  academic_coordinator: "Academic coordinator",
+  librarian: "Librarian",
+  receptionist: "Receptionist",
   auditor: "Auditor",
 };
 
-// Finance officers and auditors use the administrator layout; what they can
+// Office and other staff roles use the administrator layout; what they can
 // open is still limited by their permissions.
 const LAYOUT_FOR: Record<MemberRole, Exclude<UserRole, "platform">> = {
   school_admin: "admin",
   finance_officer: "admin",
+  headteacher: "admin",
+  academic_coordinator: "admin",
+  librarian: "admin",
+  receptionist: "admin",
   auditor: "admin",
   teacher: "teacher",
   student: "student",
@@ -66,6 +75,8 @@ interface AuthContextType {
   isAuthenticated: boolean;
   /** Signs in. `screenRole` only picks which of the user's roles to open first. */
   login: (email: string, password: string, screenRole: UserRole) => Promise<void>;
+  /** The separate Super Admin sign-in. Only accounts the server lists as platform administrators get in. */
+  platformLogin: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   switchMembership: (m: Membership) => void;
   /** True for Tech Oasis platform administrators (no school membership). */
@@ -169,6 +180,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     await refreshMfa();
   }, [refreshMfa]);
 
+  // Lets the data layer say which school an audit failure belongs to.
+  useEffect(() => {
+    setAuditSchool(user && user.role !== "platform" ? user.schoolId : null);
+  }, [user]);
+
   // Restore an existing session on load.
   useEffect(() => {
     let cancelled = false;
@@ -206,8 +222,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const authId = await signIn(email, password);
     const list = await loadMemberships();
     if (list.length === 0 && (await checkPlatform())) {
-      await activatePlatform(authId, email.trim().toLowerCase());
-      return;
+      await signOut();
+      throw new AuthError("Platform administrators sign in at the Super Admin login, not here.");
     }
     if (list.length === 0) {
       await signOut();
@@ -218,6 +234,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const m = pick(list, null, screenRole);
     await activate(list, m);
     if (m) await db.rpc("log_session_event", { _school: m.schoolId, _action: "login" });
+  };
+
+  const platformLogin = async (email: string, password: string) => {
+    const authId = await signIn(email, password);
+    const list = await loadMemberships();
+    if (list.length > 0 || !(await checkPlatform())) {
+      // A school login is never a platform login. Same message as a wrong password: no hints.
+      await signOut();
+      throw new AuthError("We could not sign you in. Check your details and try again.");
+    }
+    await activatePlatform(authId, email.trim().toLowerCase());
   };
 
   const logout = async () => {
@@ -242,6 +269,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         loading,
         isAuthenticated: !!user,
         login,
+        platformLogin,
         logout,
         switchMembership,
         can,

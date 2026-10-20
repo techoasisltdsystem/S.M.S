@@ -81,6 +81,29 @@ const writeLocalSession = (s: LocalSession | null) => {
   }
 }
 
+// When the database refuses a sensitive change because its audit record could not
+// be written (error code AU001), the app tells the platform so an incident is
+// raised even though the refused change itself was rolled back.
+let auditSchoolId: string | null = null
+export const setAuditSchool = (id: string | null) => {
+  auditSchoolId = id
+}
+const reportedAt = new Map<string, number>()
+
+const watchAuditFailure = (input: RequestInfo | URL, res: Response) => {
+  if (res.status < 400) return res
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
+  if (url.includes('report_audit_failure')) return res
+  res.clone().json().then((body: { code?: string }) => {
+    if (body?.code !== 'AU001' || !auditSchoolId) return
+    const name = (url.split('?')[0].split('/').pop() ?? 'unspecified').slice(0, 60)
+    if (Date.now() - (reportedAt.get(name) ?? 0) < 60_000) return
+    reportedAt.set(name, Date.now())
+    void db.rpc('report_audit_failure', { _school: auditSchoolId, _operation: name })
+  }).catch(() => undefined)
+  return res
+}
+
 const createDb = (): SupabaseClient<Database> => {
   // The Neon client speaks the same query dialect as supabase-js.
   if (neon) return neon as unknown as SupabaseClient<Database>
@@ -94,7 +117,7 @@ const createDb = (): SupabaseClient<Database> => {
           const headers = new Headers(init?.headers)
           headers.delete('apikey')
           if (headers.get('authorization') === 'Bearer local-dev') headers.delete('authorization')
-          return fetch(input, { ...init, headers })
+          return fetch(input, { ...init, headers }).then((res) => watchAuditFailure(input, res))
         },
       },
     })
@@ -110,6 +133,7 @@ const createDb = (): SupabaseClient<Database> => {
         persistSession: true,
         autoRefreshToken: true,
       },
+      global: { fetch: (input, init) => fetch(input, init).then((res) => watchAuditFailure(input, res)) },
     },
   )
 }
@@ -225,13 +249,24 @@ export const acceptInvitation = async (token: string, email: string, password: s
 }
 
 /** Sends a password-reset email. Not available on the laptop database. */
-export const passwordResetAvailable = dbProvider !== 'local'
+export const passwordResetAvailable = true
 export const requestPasswordReset = async (email: string) => {
-  if (!passwordResetAvailable) throw new AuthError('Password reset by email is not available on the laptop database.')
+  if (dbProvider === 'local') {
+    // The local sign-in has no email service of its own; the billing backend sends the single-use link.
+    const res = await fetch('/api/billing/recover', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email }) })
+    if (!res.ok) throw new AuthError('We could not start the reset. Try again later.')
+    return
+  }
   const { error } = await (neon ? neon.auth : db.auth).resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   })
   if (error) throw new AuthError('We could not send the reset email. Try again later.')
+}
+
+/** Local sign-in: choose a new password with the single-use token from the reset email. */
+export const resetPasswordWithToken = async (token: string, password: string) => {
+  const { error } = await db.rpc('local_reset_password' as never, { _token: token, _password: password } as never)
+  if (error) throw new AuthError(error.message)
 }
 
 export const updatePassword = async (password: string) => {

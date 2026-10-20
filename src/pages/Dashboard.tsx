@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import AdminDashboard from "@/pages/dashboards/AdminDashboard";
 import TeacherDashboard from "@/pages/dashboards/TeacherDashboard";
 import { StudentDashboard, ParentDashboard } from "@/pages/dashboards/StudentView";
+import StaffHome from "@/pages/dashboards/StaffHome";
 
 // Each role gets the dashboard laid out for its work; all of them read the same
 // school records, and the database decides what each person may see.
@@ -37,7 +38,7 @@ const Dashboard = () => {
           <Button size="sm" onClick={() => navigate("/setup")} className="shrink-0">Set Up Now</Button>
         </motion.div>
       )}
-      {user.role === "admin" && <AdminDashboard />}
+      {user.role === "admin" && (user.memberRole === "librarian" || user.memberRole === "receptionist" ? <StaffHome /> : <AdminDashboard />)}
       {user.role === "teacher" && <TeacherDashboard />}
       {user.role === "student" && <StudentDashboard />}
       {user.role === "parent" && <ParentDashboard />}

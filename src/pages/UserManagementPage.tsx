@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search, Plus, Eye, MoreHorizontal, Users, UserCheck,
-  Ban, UserMinus, Pencil, Shield, GraduationCap, UserCog, Loader2, Copy, Mail, Wallet, ClipboardCheck,
+  Ban, UserMinus, Pencil, Shield, GraduationCap, UserCog, Loader2, Copy, Mail, Wallet, ClipboardCheck, BookOpen,
 } from 'lucide-react'
 import { db } from '@/lib/db'
 import { useAuth, MEMBER_ROLE_LABEL, type MemberRole } from '@/contexts/AuthContext'
@@ -35,7 +35,7 @@ interface SchoolPerson extends Profile {
   memberships: Membership[]
 }
 
-const ROLES: MemberRole[] = ['school_admin', 'teacher', 'student', 'parent', 'finance_officer', 'auditor']
+const ROLES: MemberRole[] = ['school_admin', 'headteacher', 'academic_coordinator', 'teacher', 'finance_officer', 'librarian', 'receptionist', 'auditor', 'student', 'parent']
 
 const STATUS_COLORS: Record<UserStatus | 'invited', string> = {
   active: 'bg-success/10 text-success border-success/20',
@@ -52,6 +52,10 @@ const ROLE_ICONS: Record<MemberRole, React.ElementType> = {
   parent: Users,
   finance_officer: Wallet,
   auditor: ClipboardCheck,
+  headteacher: Shield,
+  academic_coordinator: ClipboardCheck,
+  librarian: BookOpen,
+  receptionist: Users,
 }
 
 // Shown in the table: "invited" until the person accepts, otherwise the account status.
@@ -387,7 +391,7 @@ const UserTable = ({ people, loading, error, selfId, onView, onEdit, onStatusCha
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
 type Tab = 'all' | 'staff' | 'student' | 'parent'
-const STAFF_ROLES: MemberRole[] = ['school_admin', 'teacher', 'finance_officer', 'auditor']
+const STAFF_ROLES: MemberRole[] = ['school_admin', 'headteacher', 'academic_coordinator', 'teacher', 'finance_officer', 'librarian', 'receptionist', 'auditor']
 
 const UserManagementPage = () => {
   const { toast } = useToast()
@@ -486,7 +490,7 @@ const UserManagementPage = () => {
     <DashboardLayout>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <StatCard title="People" value={stats.total} icon={Users} color="primary" change={`${stats.active} active`} changeType="neutral" />
-        <StatCard title="Staff" value={stats.staff} icon={UserCog} color="info" change="Admins, teachers, finance, auditors" changeType="neutral" delay={0.08} />
+        <StatCard title="Staff" value={stats.staff} icon={UserCog} color="info" change="Admins, teachers and office staff" changeType="neutral" delay={0.08} />
         <StatCard title="Students" value={stats.students} icon={GraduationCap} color="success" change="With a student login" changeType="neutral" delay={0.16} />
         <StatCard title="Parents" value={stats.parents} icon={Users} color="warning" change="With a parent login" changeType="neutral" delay={0.24} />
       </div>

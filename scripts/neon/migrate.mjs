@@ -28,7 +28,7 @@ if (!url) {
 }
 
 // Neon Auth owns the login table; Supabase's auth.users does not exist here.
-const forNeon = (sql) => sql.replaceAll('auth.users(id)', 'neon_auth."user"(id)')
+const forNeon = (sql) => sql.replaceAll('auth.users', 'neon_auth."user"')
 
 const client = new pg.Client({ connectionString: url, ssl: { rejectUnauthorized: false } })
 try {

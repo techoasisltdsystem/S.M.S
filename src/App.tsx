@@ -25,6 +25,26 @@ import SetupWizard from "./pages/SetupWizard";
 import UserManagementPage from "./pages/UserManagementPage";
 import AdminSettingsPage from "./pages/AdminSettingsPage";
 import AuditLogsPage from "./pages/AuditLogsPage";
+import MessagesPage from "./pages/MessagesPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import AssignmentsPage from "./pages/AssignmentsPage";
+import FeesPage from "./pages/FeesPage";
+import AuditMonitoringPage from "./pages/AuditMonitoringPage";
+import PlatformSubscriptionsPage from "./pages/PlatformSubscriptionsPage";
+import PlatformSupportPage from "./pages/PlatformSupportPage";
+import PlatformActivityPage from "./pages/PlatformActivityPage";
+import SchoolSupportPage from "./pages/SchoolSupportPage";
+import RolePermissionsPage from "./pages/RolePermissionsPage";
+import PricingPage from "./pages/PricingPage";
+import CheckoutPage from "./pages/CheckoutPage";
+import CheckoutReturnPage from "./pages/CheckoutReturnPage";
+import DemoCheckoutPage from "./pages/DemoCheckoutPage";
+import SuperAdminLogin from "./pages/SuperAdminLogin";
+import PlatformClientsPage from "./pages/PlatformClientsPage";
+import PlatformClientPage from "./pages/PlatformClientPage";
+import PlatformBillingPage from "./pages/PlatformBillingPage";
+import PlatformPackagesPage from "./pages/PlatformPackagesPage";
+import PlatformRenewalsPage from "./pages/PlatformRenewalsPage";
 import NotFound from "./pages/NotFound";
 import Forbidden from "./pages/Forbidden";
 
@@ -38,13 +58,15 @@ const Checking = () => (
 
 // Signed-in pages. `permission` hides a page from roles that cannot use it;
 // the database refuses those requests anyway.
-const ProtectedRoute = ({ children, permission, platform }: { children: React.ReactNode; permission?: string; platform?: boolean }) => {
-  const { isAuthenticated, loading, mfa, can, isPlatform } = useAuth();
+const ProtectedRoute = ({ children, permission, platform, schoolAdmin }: { children: React.ReactNode; permission?: string; platform?: boolean; schoolAdmin?: boolean }) => {
+  const { isAuthenticated, loading, mfa, can, isPlatform, user } = useAuth();
   if (loading) return <Checking />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (mfa && mfa.kind !== "not_needed") return <MfaGate />;
   if (platform ? !isPlatform : isPlatform) return platform ? <Forbidden /> : <Navigate to="/platform" replace />;
   if (permission && !can(permission)) return <Forbidden />;
+  // Billing stays open to the School Admin of a lapsed (read-only) school so they can renew.
+  if (schoolAdmin && user?.role !== "admin") return <Forbidden />;
   return <>{children}</>;
 };
 
@@ -60,6 +82,11 @@ const AppRoutes = () => (
     <Route path="/" element={<LandingPage />} />
     <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
     <Route path="/admin" element={<PublicRoute><AdminLogin /></PublicRoute>} />
+    <Route path="/super-admin/login" element={<SuperAdminLogin />} />
+    <Route path="/pricing" element={<PricingPage />} />
+    <Route path="/checkout" element={<CheckoutPage />} />
+    <Route path="/checkout/return" element={<CheckoutReturnPage />} />
+    <Route path="/checkout/demo" element={<DemoCheckoutPage />} />
     <Route path="/accept-invite" element={<AcceptInvite />} />
     <Route path="/reset-password" element={<ResetPassword />} />
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
@@ -67,6 +94,18 @@ const AppRoutes = () => (
     {/* Tech Oasis platform console */}
     <Route path="/platform" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
     <Route path="/platform/schools" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
+    <Route path="/platform/clients" element={<ProtectedRoute platform><PlatformClientsPage /></ProtectedRoute>} />
+    <Route path="/platform/clients/:id" element={<ProtectedRoute platform><PlatformClientPage /></ProtectedRoute>} />
+    <Route path="/platform/billing" element={<ProtectedRoute platform><PlatformBillingPage /></ProtectedRoute>} />
+    <Route path="/platform/packages" element={<ProtectedRoute platform><PlatformPackagesPage view="packages" /></ProtectedRoute>} />
+    <Route path="/platform/settings" element={<ProtectedRoute platform><PlatformPackagesPage view="settings" /></ProtectedRoute>} />
+    <Route path="/platform/renewals" element={<ProtectedRoute platform><PlatformRenewalsPage /></ProtectedRoute>} />
+    <Route path="/platform/audit" element={<ProtectedRoute platform><AuditMonitoringPage /></ProtectedRoute>} />
+    <Route path="/platform/subscriptions" element={<ProtectedRoute platform><PlatformSubscriptionsPage /></ProtectedRoute>} />
+    <Route path="/platform/support" element={<ProtectedRoute platform><PlatformSupportPage /></ProtectedRoute>} />
+    <Route path="/platform/activity" element={<ProtectedRoute platform><PlatformActivityPage /></ProtectedRoute>} />
+    <Route path="/subscription" element={<ProtectedRoute schoolAdmin><SchoolSupportPage view="subscription" /></ProtectedRoute>} />
+    <Route path="/support" element={<ProtectedRoute permission="staff.manage"><SchoolSupportPage view="support" /></ProtectedRoute>} />
 
     {/* Admin pages */}
     <Route path="/setup" element={<ProtectedRoute permission="school.settings.manage"><SetupWizard /></ProtectedRoute>} />
@@ -75,18 +114,21 @@ const AppRoutes = () => (
     <Route path="/admin-settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
+    <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
+    <Route path="/assignments" element={<ProtectedRoute><AssignmentsPage /></ProtectedRoute>} />
+    <Route path="/role-permissions" element={<ProtectedRoute permission="staff.manage"><RolePermissionsPage /></ProtectedRoute>} />
 
     {/* Modules not built yet: each page says which phase brings it */}
     <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
     <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
-    <Route path="/fees" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
+    <Route path="/fees" element={<ProtectedRoute><FeesPage /></ProtectedRoute>} />
     <Route path="/classes" element={<ProtectedRoute><ClassesPage /></ProtectedRoute>} />
     <Route path="/timetable" element={<ProtectedRoute><TimetablePage /></ProtectedRoute>} />
     <Route path="/exams" element={<ProtectedRoute><ExamsPage /></ProtectedRoute>} />
     <Route path="/attendance" element={<ProtectedRoute><AttendancePage /></ProtectedRoute>} />
     <Route path="/reports" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
     <Route path="/library" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
-    <Route path="/notifications" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
+    <Route path="/notifications" element={<ProtectedRoute><NotificationsPage /></ProtectedRoute>} />
     <Route path="/analytics" element={<ProtectedRoute><AdminModulesPage /></ProtectedRoute>} />
 
     <Route path="*" element={<NotFound />} />
