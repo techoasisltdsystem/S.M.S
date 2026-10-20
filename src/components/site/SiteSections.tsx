@@ -10,6 +10,7 @@ import Logo from "@/components/ui/logo";
 import HeroSlideshow from "./HeroSlideshow";
 import ProductPreview from "./ProductPreview";
 import ContactForm from "./ContactForm";
+import PricingTable from "./PricingTable";
 
 const Reveal = ({ children, className = "" }: { children: React.ReactNode; className?: string }) => {
   const reduce = useReducedMotion();
@@ -208,11 +209,9 @@ export const HowItWorks = () => (
 
 export const Pricing = () => (
   <Section id="pricing">
-    <Heading eyebrow="Pricing" title="Pricing is being finalised" text="We are still settling our packages, so we are not publishing prices yet. Tell us your school's size and what you need and we will send a quote." />
-    <Reveal className="text-center">
-      <Button asChild size="lg" className="h-12 px-7">
-        <a href="#contact">Ask for a quote</a>
-      </Button>
+    <Heading eyebrow="Pricing" title="Simple pricing for every school" text="Choose your currency and whether to pay monthly or yearly." />
+    <Reveal>
+      <PricingTable />
     </Reveal>
   </Section>
 );
@@ -221,7 +220,7 @@ const FAQS = [
   { q: "Is Tech Oasis SMS ready to run a whole school today?", a: "Not yet. User and role management, the audit log and school setup are in place. Student records and fees are early versions, and attendance, timetables, exams and reports are planned. The modules page shows the current status of each." },
   { q: "Can I try it?", a: "Request a demo and we will show you what exists now and answer your questions. The product preview above uses sample data only." },
   { q: "Which roles are supported?", a: "Administrator, teacher, student and parent." },
-  { q: "How much does it cost?", a: "Pricing is not published yet. Use the contact form for a quote based on your school's size." },
+  { q: "How much does it cost?", a: "Plans are priced per school and shown in US Dollars, Ghana Cedis or Nigerian Naira, monthly or yearly. The amounts shown are sample prices until packages are final, so use the contact form for a confirmed quote." },
   { q: "Where is our data kept?", a: "School data is stored in a hosted PostgreSQL database. We are moving to a new database provider, so we will confirm the details with you before you load real records." },
 ];
 
