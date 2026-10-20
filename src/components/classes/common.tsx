@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useRefreshSchoolData } from "@/hooks/useSchoolData";
 
-export const errorText = (err: unknown, fallback = "Something went wrong. Try again.") =>
-  err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : fallback;
+export const errorText = (err: unknown, fallback = "Something went wrong. Try again.") => {
+  const message = err && typeof err === "object" && "message" in err ? String((err as { message: unknown }).message) : fallback;
+  return /foreign key constraint/i.test(message)
+    ? "This is still in use (by students, terms, marks, classes or the timetable), so it cannot be deleted. Remove or move those first."
+    : message;
+};
 
 export const LoadingBlock = ({ rows = 3 }: { rows?: number }) => (
   <div className="space-y-3" aria-busy="true" aria-label="Loading">

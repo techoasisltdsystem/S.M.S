@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BookOpen, CalendarRange, GraduationCap, Plus, School, Trash2, Users } from "lucide-react";
+import { BookOpen, CalendarRange, GraduationCap, Pencil, Plus, School, Trash2, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import KitStat from "@/components/kit/KitStat";
@@ -13,6 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import type { Enrollment, Person, SchoolClass, Subject } from "@/hooks/useSchoolData";
 import type { Tables } from "@/integrations/supabase/types";
 import { useWrite } from "./common";
+import ConfirmDelete from "./ConfirmDelete";
+import SetupEditDialog, { type SetupEdit } from "./SetupEditDialog";
 
 type Year = Tables<"academic_years">;
 type Term = Tables<"terms">;
@@ -44,6 +46,22 @@ const AdminSetup = ({ schoolId, years, terms, subjects, classes, assignments, pe
   const yearName = (id: string) => years.find((y) => y.id === id)?.name ?? "Unknown year";
   const subjectName = (id: string) => subjects.find((s) => s.id === id)?.name ?? "Unknown subject";
   const activeCount = (classId: string) => enrollments.filter((e) => e.class_id === classId && e.status === "active").length;
+
+  // ---- edit and delete ----
+  const [edit, setEdit] = useState<SetupEdit | null>(null);
+  const [del, setDel] = useState<{ table: "academic_years" | "terms" | "subjects" | "classes"; id: string; name: string; noun: string } | null>(null);
+  const confirmDelete = async () => {
+    if (!del) return;
+    const d = del;
+    setDel(null);
+    await run(() => db.from(d.table).delete().eq("id", d.id).eq("school_id", schoolId), `${d.noun[0].toUpperCase()}${d.noun.slice(1)} deleted`, `Could not delete the ${d.noun}`);
+  };
+  const Actions = ({ onEdit, onDelete, label }: { onEdit: () => void; onDelete: () => void; label: string }) => (
+    <span className="flex shrink-0 items-center">
+      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Edit ${label}`} disabled={busy} onClick={onEdit}><Pencil className="h-4 w-4" /></Button>
+      <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`Delete ${label}`} disabled={busy} onClick={onDelete}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+    </span>
+  );
 
   // ---- years ----
   const [yr, setYr] = useState({ name: "", start: "", end: "", current: false });
@@ -167,7 +185,10 @@ const AdminSetup = ({ schoolId, years, terms, subjects, classes, assignments, pe
                       </p>
                     )}
                   </div>
-                  <Badge variant="secondary">{activeCount(c.id)} students</Badge>
+                  <div className="flex items-center gap-1">
+                    <Badge variant="secondary">{activeCount(c.id)} students</Badge>
+                    <Actions label={c.name} onEdit={() => setEdit({ kind: "class", row: c })} onDelete={() => setDel({ table: "classes", id: c.id, name: c.name, noun: "class" })} />
+                  </div>
                 </li>
               );
             })}
@@ -213,13 +234,19 @@ const AdminSetup = ({ schoolId, years, terms, subjects, classes, assignments, pe
                   <p className="font-medium text-card-foreground">
                     {y.name} <span className="text-xs font-normal text-muted-foreground">{y.starts_on} to {y.ends_on}</span>
                   </p>
-                  {y.is_current ? <Badge>Current</Badge> : <Button size="sm" variant="outline" disabled={busy} onClick={() => makeYearCurrent(y.id)}>Mark current</Button>}
+                  <div className="flex items-center gap-1">
+                    {y.is_current ? <Badge>Current</Badge> : <Button size="sm" variant="outline" disabled={busy} onClick={() => makeYearCurrent(y.id)}>Mark current</Button>}
+                    <Actions label={y.name} onEdit={() => setEdit({ kind: "year", row: y })} onDelete={() => setDel({ table: "academic_years", id: y.id, name: y.name, noun: "academic year" })} />
+                  </div>
                 </div>
                 <ul className="mt-2 space-y-1.5">
                   {terms.filter((t) => t.academic_year_id === y.id).map((t) => (
                     <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 text-sm">
                       <span>{t.name} <span className="text-xs text-muted-foreground">{t.starts_on} to {t.ends_on}</span></span>
-                      {t.is_current ? <Badge variant="secondary">Current term</Badge> : <Button size="sm" variant="ghost" disabled={busy} onClick={() => makeTermCurrent(t.id)}>Mark current</Button>}
+                      <span className="flex items-center gap-1">
+                        {t.is_current ? <Badge variant="secondary">Current term</Badge> : <Button size="sm" variant="ghost" disabled={busy} onClick={() => makeTermCurrent(t.id)}>Mark current</Button>}
+                        <Actions label={t.name} onEdit={() => setEdit({ kind: "term", row: t })} onDelete={() => setDel({ table: "terms", id: t.id, name: t.name, noun: "term" })} />
+                      </span>
                     </li>
                   ))}
                   {terms.every((t) => t.academic_year_id !== y.id) && <li className="text-xs text-muted-foreground">No terms yet for this year.</li>}
@@ -255,7 +282,12 @@ const AdminSetup = ({ schoolId, years, terms, subjects, classes, assignments, pe
           <EmptyState icon={BookOpen} title="No subjects yet" text="Add the subjects your school teaches." />
         ) : (
           <div className="flex flex-wrap gap-2">
-            {subjects.map((s) => <Badge key={s.id} variant="secondary">{s.name}{s.code ? ` (${s.code})` : ""}</Badge>)}
+            {subjects.map((s) => (
+              <span key={s.id} className="inline-flex items-center gap-0.5 rounded-full bg-secondary pl-3 text-xs font-semibold text-secondary-foreground">
+                {s.name}{s.code ? ` (${s.code})` : ""}
+                <Actions label={s.name} onEdit={() => setEdit({ kind: "subject", row: s })} onDelete={() => setDel({ table: "subjects", id: s.id, name: s.name, noun: "subject" })} />
+              </span>
+            ))}
           </div>
         )}
         <div className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-3">
@@ -305,6 +337,14 @@ const AdminSetup = ({ schoolId, years, terms, subjects, classes, assignments, pe
         </div>
         {teachers.length === 0 && <p className="mt-2 text-xs text-muted-foreground">No teachers in the school yet. Invite teachers from User management.</p>}
       </Panel>
+      <SetupEditDialog edit={edit} onClose={() => setEdit(null)} schoolId={schoolId} years={years} teachers={teachers} />
+      <ConfirmDelete
+        open={!!del}
+        onOpenChange={(o) => !o && setDel(null)}
+        title={`Delete ${del?.noun} "${del?.name}"?`}
+        text="This cannot be undone. If it is still in use the database will refuse, and nothing is lost. The deletion is recorded in the audit log."
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };
