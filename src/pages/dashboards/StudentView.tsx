@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, Medal, UserCheck } from "lucide-react";
+import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, DollarSign, Medal, UserCheck } from "lucide-react";
+import { money, useInvoices } from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
 import { Panel, EmptyState } from "@/components/kit/Panel";
@@ -153,6 +154,24 @@ export const StudentDashboard = () => {
 };
 
 /** Parent dashboard: children whose link the school has verified. */
+/** Outstanding fees for one child. Hidden if the school's plan has no fees or there are no invoices. */
+const ParentFeesCard = ({ schoolId, studentId }: { schoolId: string; studentId: string }) => {
+  const q = useInvoices(schoolId, { student: studentId });
+  const rows = q.data ?? [];
+  if (q.isLoading || q.isError || rows.length === 0) return null;
+  const owed = rows.reduce((n, r) => n + r.balance, 0);
+  const overdue = rows.filter((r) => r.status === "overdue").length;
+  return (
+    <Panel title="Fees" icon={DollarSign} link={{ to: "/fees", label: "View invoices" }}>
+      <p className="font-heading text-2xl font-bold text-card-foreground">{money(owed)}</p>
+      <p className="text-sm text-muted-foreground">
+        outstanding across {rows.filter((r) => r.balance > 0).length} invoice{rows.filter((r) => r.balance > 0).length === 1 ? "" : "s"}
+        {overdue > 0 ? `, ${overdue} overdue` : ""}
+      </p>
+    </Panel>
+  );
+};
+
 export const ParentDashboard = () => {
   const { user } = useAuth();
   const sid = user!.schoolId;
@@ -187,6 +206,7 @@ export const ParentDashboard = () => {
           ))}
         </div>
       )}
+      <ParentFeesCard key={active.student_id} schoolId={sid} studentId={active.student_id} />
       <StudentView studentId={active.student_id} name={name.get(active.student_id) ?? "Your child"} viewer="parent" />
     </div>
   );

@@ -32,7 +32,6 @@ const MODULES: Record<string, ModuleInfo> = {
   "/timetable": { title: "Timetable", description: "Periods, rooms and substitutions.", icon: Calendar, phase: 3, phaseName: "School administration" },
   "/attendance": { title: "Attendance", description: "Daily registers, corrections and absence alerts.", icon: UserCheck, phase: 4, phaseName: "Attendance and academics" },
   "/exams": { title: "Exams and grades", description: "Assessments, gradebooks, approval, publication and report cards.", icon: ClipboardList, phase: 4, phaseName: "Attendance and academics" },
-  "/fees": { title: "Fees and payments", description: "Fee structures, invoices in GHS, Paystack payments, receipts and refunds.", icon: DollarSign, phase: 5, phaseName: "Finance and payments" },
   "/library": { title: "Library", description: "Catalogue, loans and returns.", icon: Library, phase: 7, phaseName: "Operations" },
   "/notifications": { title: "Notifications", description: "In-app, email, SMS and push messages with delivery status.", icon: Bell, phase: 7, phaseName: "Operations" },
   "/analytics": { title: "Analytics", description: "Enrolment, attendance, results and fee collection reports.", icon: BarChart3, phase: 7, phaseName: "Operations" },

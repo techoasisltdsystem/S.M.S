@@ -228,6 +228,9 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
             </Link>
           </p>
         )}
+        <p className={`mt-5 border-t border-white/15 pt-3 text-center text-xs ${t.muted}`}>
+          <Link to="/super-admin/login" className="underline-offset-2 hover:text-white hover:underline">Platform administration</Link>
+        </p>
       </motion.form>
     </div>
   );

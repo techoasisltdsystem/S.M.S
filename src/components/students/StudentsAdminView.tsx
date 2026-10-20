@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { rpc } from "@/lib/rpc";
 import { GraduationCap, Plus, Search, ShieldCheck, UserPlus, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,6 +19,7 @@ import { InviteLinkDialog, type IssuedLink } from "./InviteLinkDialog";
 import { AddStudentDialog } from "./AddStudentDialog";
 import { ChangeClassDialog } from "./ChangeClassDialog";
 import { GuardianDialog, LinkActions, LinkBadge } from "./GuardianDialog";
+import { AdmissionNumberDialog } from "./AdmissionNumberDialog";
 
 const ALL = "all";
 
@@ -40,6 +43,13 @@ export const StudentsAdminView = () => {
   const [changing, setChanging] = useState<{ id: string; name: string; classId: string | null } | null>(null);
   const [guardians, setGuardians] = useState<{ id: string; name: string } | null>(null);
   const [withdrawing, setWithdrawing] = useState<{ enrollmentId: string; name: string } | null>(null);
+  const [numbering, setNumbering] = useState<{ id: string; name: string } | null>(null);
+  const admissions = useQuery({
+    queryKey: ["admission-numbers", schoolId],
+    enabled: !!schoolId,
+    queryFn: () => rpc<{ profile_id: string; admission_number: string }[]>("student_admission_numbers", { _school: schoolId }),
+  });
+  const admissionOf = useMemo(() => new Map((admissions.data ?? []).map((a) => [a.profile_id, a.admission_number])), [admissions.data]);
 
   const people = useMemo(() => directory.data ?? [], [directory.data]);
   const nameOf = (id: string) => people.find((p) => p.profile_id === id)?.full_name ?? "Unknown person";
@@ -157,6 +167,7 @@ export const StudentsAdminView = () => {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Name</TableHead>
+                      <TableHead>Adm. no.</TableHead>
                       <TableHead>Class</TableHead>
                       <TableHead>Gender</TableHead>
                       <TableHead>Guardians</TableHead>
@@ -167,6 +178,12 @@ export const StudentsAdminView = () => {
                     {filtered.map((r) => (
                       <TableRow key={r.person.profile_id}>
                         <TableCell className="font-medium">{r.person.full_name}</TableCell>
+                        <TableCell>
+                          {admissionOf.get(r.person.profile_id) ?? <span className="text-muted-foreground">Not set</span>}
+                          {canUpdate && (
+                            <Button size="sm" variant="ghost" className="ml-1 h-6 px-1.5 text-xs" onClick={() => setNumbering({ id: r.person.profile_id, name: r.person.full_name })} aria-label={`Edit admission number for ${r.person.full_name}`}>Edit</Button>
+                          )}
+                        </TableCell>
                         <TableCell>{r.className ?? <span className="text-muted-foreground">Not enrolled</span>}</TableCell>
                         <TableCell className="capitalize">{r.person.gender ?? <span className="text-muted-foreground">Not set</span>}</TableCell>
                         <TableCell>
@@ -215,6 +232,7 @@ export const StudentsAdminView = () => {
 
       <AddStudentDialog open={adding} schoolId={schoolId} classes={classList} onClose={() => setAdding(false)} onIssued={setIssued} />
       <ChangeClassDialog student={changing} classes={classList} onClose={() => setChanging(null)} />
+      <AdmissionNumberDialog student={numbering} current={numbering ? admissionOf.get(numbering.id) ?? "" : ""} onClose={() => setNumbering(null)} />
       <GuardianDialog
         student={guardians}
         schoolId={schoolId}

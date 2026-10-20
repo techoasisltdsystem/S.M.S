@@ -3,6 +3,7 @@ import { GraduationCap, Info } from "lucide-react";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import { average, pct, useAssessments, useMarks, useStanding } from "@/hooks/useSchoolData";
 import { fmtDate, fmtNum, ListSkeleton, LoadError, type Lookups } from "./shared";
+import DownloadMenu from "./DownloadMenu";
 
 /** Published results for one student (the signed-in student, or a parent's chosen child). */
 const PublishedResults = ({ schoolId, studentId, lookups }: { schoolId: string; studentId: string; lookups: Lookups }) => {
@@ -38,10 +39,13 @@ const PublishedResults = ({ schoolId, studentId, lookups }: { schoolId: string; 
 
   return (
     <div className="space-y-4">
-      <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
-        <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-        Results appear here after the school has checked and published them.
-      </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
+          <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+          Results appear here after the school has checked and published them.
+        </p>
+        <DownloadMenu target={{ kind: "student", studentId, label: lookups.personName.get(studentId) }} label="Download report" />
+      </div>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <div className="rounded-xl border border-border bg-card p-5 shadow-card">
           <p className="text-xs text-muted-foreground">Average</p>

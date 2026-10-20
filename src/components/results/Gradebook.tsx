@@ -6,6 +6,9 @@ import { Input } from "@/components/ui/input";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import { useToast } from "@/hooks/use-toast";
 import { average, pct, type Assessment, type Enrollment, type Mark } from "@/hooks/useSchoolData";
+import { useResultsPolicy } from "@/hooks/useResults";
+import { CorrectionDialog, HistoryDialog } from "./CorrectionTools";
+import AssignmentPanel from "./AssignmentPanel";
 import { errorText, fmtDate, fmtNum, StatusChip, type Lookups } from "./shared";
 
 interface Props {
@@ -23,6 +26,10 @@ interface Row { score: string; comment: string }
 /** Draft: editable marks. Anything else: read-only. Mount with key={assessment.id}. */
 const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBack, onChanged }: Props) => {
   const { toast } = useToast();
+  const policy = useResultsPolicy(schoolId);
+  const direct = policy.data?.results_approval_required === false;
+  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
   const editable = a.status === "draft";
   const students = useMemo(
     () =>
@@ -109,7 +116,18 @@ const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBac
         toast({ title: "Could not submit", description: errorText(error), variant: "destructive" });
         return;
       }
-      toast({ title: "Submitted for approval", description: "Marks are now locked unless an approver reopens them." });
+      if (direct) {
+        const pub = await db.rpc("move_assessment", { _assessment: a.id, _to: "published" });
+        if (pub.error) {
+          toast({ title: "Submitted, but not published", description: errorText(pub.error), variant: "destructive" });
+          onChanged();
+          onBack();
+          return;
+        }
+        toast({ title: "Results published", description: "Students and parents have been notified." });
+      } else {
+        toast({ title: "Submitted for approval", description: "Marks are now locked unless an approver reopens them." });
+      }
       onChanged();
       onBack();
     } finally {
@@ -134,10 +152,14 @@ const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBac
         {!editable && (
           <p className="mt-3 flex items-start gap-2 rounded-lg bg-muted px-3 py-2 text-sm text-muted-foreground">
             <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            These results are {a.status} and read-only. Only an approver can reopen them for changes.
+            {a.status === "published"
+              ? "These results are published and read-only. To change a score, use Correct: the old value is kept in the history."
+              : `These results are ${a.status} and read-only. Only an approver can reopen them for changes.`}
           </p>
         )}
       </Panel>
+
+      <AssignmentPanel assessment={a} />
 
       {students.length === 0 ? (
         <EmptyState icon={Info} title="No students in this class" text="Students appear here once the school enrols them in the class." action={{ to: "/classes", label: "Go to classes" }} />
@@ -151,6 +173,7 @@ const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBac
                   <th className="px-3 py-2 font-medium">Score / {fmtNum(a.max_score)}</th>
                   <th className="px-3 py-2 font-medium">%</th>
                   <th className="px-3 py-2 font-medium">Comment</th>
+                  {a.status === "published" && <th className="px-3 py-2 font-medium"><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
               <tbody>
@@ -185,6 +208,16 @@ const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBac
                           <span className="text-muted-foreground">{m?.comment || "—"}</span>
                         )}
                       </td>
+                      {a.status === "published" && (
+                        <td className="px-3 py-2">
+                          {m && n !== null && (
+                            <div className="flex gap-1">
+                              <Button size="sm" variant="outline" onClick={() => setCorrecting(s.id)}>Correct</Button>
+                              <Button size="sm" variant="ghost" onClick={() => setHistory(s.id)}>History</Button>
+                            </div>
+                          )}
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -199,11 +232,32 @@ const Gradebook = ({ assessment: a, enrollments, marks, lookups, schoolId, onBac
               </Button>
               <Button onClick={onSubmit} disabled={busy !== null || (saved.size === 0 && !dirty)}>
                 {busy === "submit" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-                Submit for approval
+                {direct ? "Submit and publish" : "Submit for approval"}
               </Button>
             </div>
           )}
         </Panel>
+      )}
+      {correcting && saved.get(correcting) && (
+        <CorrectionDialog
+          open
+          onOpenChange={(o) => !o && setCorrecting(null)}
+          schoolId={schoolId}
+          assessment={a}
+          mark={saved.get(correcting)!}
+          studentName={lookups.personName.get(correcting) ?? "Student"}
+        />
+      )}
+      {history && (
+        <HistoryDialog
+          open
+          onOpenChange={(o) => !o && setHistory(null)}
+          schoolId={schoolId}
+          assessment={a}
+          studentId={history}
+          studentName={lookups.personName.get(history) ?? "Student"}
+          lookups={lookups}
+        />
       )}
     </div>
   );

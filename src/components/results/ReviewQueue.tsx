@@ -11,6 +11,8 @@ import { Panel, EmptyState } from "@/components/kit/Panel";
 import { useToast } from "@/hooks/use-toast";
 import { average, pct, useAssessments, useEnrollments, useMarks, useRefreshSchoolData, type Assessment } from "@/hooks/useSchoolData";
 import { errorText, fmtDateTime, fmtNum, ListSkeleton, LoadError, StatusChip, type Lookups } from "./shared";
+import { CorrectionDialog, HistoryDialog } from "./CorrectionTools";
+import DownloadMenu from "./DownloadMenu";
 
 type Filter = "all" | "submitted" | "approved" | "published" | "draft";
 type Target = "approved" | "published" | "draft";
@@ -27,6 +29,8 @@ const ReviewQueue = ({ schoolId, lookups }: { schoolId: string; lookups: Lookups
   const [reopenId, setReopenId] = useState<string | null>(null);
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [correcting, setCorrecting] = useState<string | null>(null);
+  const [history, setHistory] = useState<string | null>(null);
 
   const list = useMemo(() => {
     const all = assessments.data ?? [];
@@ -154,6 +158,7 @@ const ReviewQueue = ({ schoolId, lookups }: { schoolId: string; lookups: Lookups
                 <thead>
                   <tr className="border-b border-border text-left text-xs uppercase tracking-wider text-muted-foreground">
                     <th className="py-2 font-medium">Student</th><th className="py-2 font-medium">Score</th><th className="py-2 font-medium">%</th><th className="py-2 font-medium">Comment</th>
+                    {view.status === "published" && <th className="py-2 font-medium"><span className="sr-only">Actions</span></th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -167,6 +172,15 @@ const ReviewQueue = ({ schoolId, lookups }: { schoolId: string; lookups: Lookups
                         <td className="py-2">{m.score === null ? "—" : fmtNum(Number(m.score))}</td>
                         <td className="py-2 text-muted-foreground">{m.score === null ? "—" : `${pct(Number(m.score), view.max_score).toFixed(0)}%`}</td>
                         <td className="py-2 text-muted-foreground">{m.comment || "—"}</td>
+                        {view.status === "published" && (
+                          <td className="py-2">
+                            <div className="flex flex-wrap justify-end gap-1">
+                              {can("grades.correct") && m.score !== null && <Button size="sm" variant="outline" onClick={() => setCorrecting(m.student_id)}>Correct</Button>}
+                              <Button size="sm" variant="ghost" onClick={() => setHistory(m.student_id)}>History</Button>
+                              <DownloadMenu target={{ kind: "student", studentId: m.student_id, label: name }} label="Report" />
+                            </div>
+                          </td>
+                        )}
                       </tr>
                     ))}
                 </tbody>
@@ -185,6 +199,28 @@ const ReviewQueue = ({ schoolId, lookups }: { schoolId: string; lookups: Lookups
           )}
         </DialogContent>
       </Dialog>
+
+      {view && correcting && (marks.data ?? []).find((m) => m.assessment_id === view.id && m.student_id === correcting) && (
+        <CorrectionDialog
+          open
+          onOpenChange={(o) => !o && setCorrecting(null)}
+          schoolId={schoolId}
+          assessment={view}
+          mark={(marks.data ?? []).find((m) => m.assessment_id === view.id && m.student_id === correcting)!}
+          studentName={lookups.personName.get(correcting) ?? "Student"}
+        />
+      )}
+      {view && history && (
+        <HistoryDialog
+          open
+          onOpenChange={(o) => !o && setHistory(null)}
+          schoolId={schoolId}
+          assessment={view}
+          studentId={history}
+          studentName={lookups.personName.get(history) ?? "Student"}
+          lookups={lookups}
+        />
+      )}
 
       <Dialog open={!!reopen} onOpenChange={(o) => !o && setReopenId(null)}>
         <DialogContent>

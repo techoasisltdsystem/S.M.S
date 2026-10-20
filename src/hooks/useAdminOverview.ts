@@ -33,6 +33,7 @@ export const useAdminOverview = (schoolId: string | undefined, enabled: boolean)
       const roleCounts = { admin: 0, teacher: 0, student: 0, parent: 0 };
       const layout: Record<MemberRole, keyof typeof roleCounts> = {
         school_admin: "admin", finance_officer: "admin", auditor: "admin",
+        headteacher: "admin", academic_coordinator: "admin", librarian: "admin", receptionist: "admin",
         teacher: "teacher", student: "student", parent: "parent",
       };
       (roles.data ?? []).forEach((r) => {

@@ -53,6 +53,13 @@ const ACTION_META: Record<AuditAction, { label: string; icon: React.ElementType;
   record_created: { label: 'Record Added', icon: UserPlus, color: 'text-success' },
   record_updated: { label: 'Record Changed', icon: Settings, color: 'text-info' },
   record_deleted: { label: 'Record Removed', icon: UserMinus, color: 'text-destructive' },
+  message_hidden: { label: 'Message Hidden', icon: Ban, color: 'text-warning' },
+  conversation_started: { label: 'Conversation Started', icon: User, color: 'text-info' },
+  result_correction_requested: { label: 'Correction Requested', icon: Settings, color: 'text-warning' },
+  results_corrected: { label: 'Result Corrected', icon: Settings, color: 'text-info' },
+  correction_rejected: { label: 'Correction Rejected', icon: Ban, color: 'text-destructive' },
+  report_exported: { label: 'Report Exported', icon: Download, color: 'text-muted-foreground' },
+  grading_scale_changed: { label: 'Grading Scale Changed', icon: Settings, color: 'text-info' },
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────

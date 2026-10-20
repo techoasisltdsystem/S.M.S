@@ -1,12 +1,14 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import AuthCard, { authButton, authField } from "@/components/auth/AuthCard";
-import { passwordResetAvailable, updatePassword } from "@/lib/db";
+import { dbProvider, passwordResetAvailable, resetPasswordWithToken, updatePassword } from "@/lib/db";
 
 // Landing page for the reset link Supabase Auth emails. The link signs the
 // person in for this one purpose; here they choose the new password.
 const ResetPassword = () => {
+  const [params] = useSearchParams();
+  const token = params.get("token");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +30,12 @@ const ResetPassword = () => {
     setBusy(true);
     setError(null);
     try {
-      await updatePassword(password);
+      if (dbProvider === "local") {
+        if (!token) throw new Error("missing token");
+        await resetPasswordWithToken(token, password);
+      } else {
+        await updatePassword(password);
+      }
       setDone(true);
     } catch {
       setError("This reset link is invalid or has expired. Request a new one from the sign-in page.");
@@ -40,7 +47,7 @@ const ResetPassword = () => {
   if (done) {
     return (
       <AuthCard title="Password changed" subtitle="You can now sign in with your new password.">
-        <Link to="/dashboard" className={authButton}>Continue</Link>
+        <Link to="/login" className={authButton}>Go to sign in</Link>
       </AuthCard>
     );
   }

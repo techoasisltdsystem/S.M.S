@@ -55,6 +55,8 @@ export type Database = {
           published_at: string
           school_id: string
           title: string
+          cancelled_at: string | null
+          notified_at: string | null
         }
         Insert: {
           audience?: Database["public"]["Enums"]["audience"]
@@ -98,6 +100,21 @@ export type Database = {
           submitted_at: string | null
           term_id: string | null
           title: string
+          description: string | null
+          instructions: string | null
+          starts_at: string | null
+          deadline_at: string | null
+          duration_minutes: number | null
+          submission_format: "none" | "file" | "text" | "file_or_text" | "online"
+          allowed_file_types: string[]
+          max_file_mb: number
+          max_files: number
+          late_policy: "not_allowed" | "allow" | "penalty"
+          late_penalty_percent: number | null
+          attempts_allowed: number
+          rubric: Json
+          released_at: string | null
+          released_by: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -116,6 +133,21 @@ export type Database = {
           submitted_at?: string | null
           term_id?: string | null
           title: string
+          description?: string | null
+          instructions?: string | null
+          starts_at?: string | null
+          deadline_at?: string | null
+          duration_minutes?: number | null
+          submission_format?: "none" | "file" | "text" | "file_or_text" | "online"
+          allowed_file_types?: string[]
+          max_file_mb?: number
+          max_files?: number
+          late_policy?: "not_allowed" | "allow" | "penalty"
+          late_penalty_percent?: number | null
+          attempts_allowed?: number
+          rubric?: Json
+          released_at?: string | null
+          released_by?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -134,6 +166,21 @@ export type Database = {
           submitted_at?: string | null
           term_id?: string | null
           title?: string
+          description?: string | null
+          instructions?: string | null
+          starts_at?: string | null
+          deadline_at?: string | null
+          duration_minutes?: number | null
+          submission_format?: "none" | "file" | "text" | "file_or_text" | "online"
+          allowed_file_types?: string[]
+          max_file_mb?: number
+          max_files?: number
+          late_policy?: "not_allowed" | "allow" | "penalty"
+          late_penalty_percent?: number | null
+          attempts_allowed?: number
+          rubric?: Json
+          released_at?: string | null
+          released_by?: string | null
         }
         Relationships: []
       }
@@ -470,6 +517,7 @@ export type Database = {
       profiles: {
         Row: {
           address: string | null
+          admission_number: string | null
           avatar_url: string | null
           created_at: string
           date_of_birth: string | null
@@ -487,6 +535,7 @@ export type Database = {
         }
         Insert: {
           address?: string | null
+          admission_number?: string | null
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -504,6 +553,7 @@ export type Database = {
         }
         Update: {
           address?: string | null
+          admission_number?: string | null
           avatar_url?: string | null
           created_at?: string
           date_of_birth?: string | null
@@ -519,6 +569,75 @@ export type Database = {
           updated_at?: string
           user_id?: string | null
         }
+        Relationships: []
+      }
+      grade_bands: {
+        Row: { school_id: string; min_percent: number; grade: string; remark: string | null }
+        Insert: { school_id: string; min_percent: number; grade: string; remark?: string | null }
+        Update: { school_id?: string; min_percent?: number; grade?: string; remark?: string | null }
+        Relationships: []
+      }
+      result_versions: {
+        Row: {
+          id: string
+          school_id: string
+          assessment_id: string
+          student_id: string
+          version: number
+          score: number | null
+          max_score: number
+          grade: string | null
+          comment: string | null
+          changed_by: string | null
+          changed_role: string | null
+          reason: string | null
+          correction_id: string | null
+          created_at: string
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      result_corrections: {
+        Row: {
+          id: string
+          school_id: string
+          assessment_id: string
+          student_id: string
+          old_score: number | null
+          new_score: number | null
+          old_comment: string | null
+          new_comment: string | null
+          old_grade: string | null
+          new_grade: string | null
+          reason: string
+          status: "pending" | "approved" | "rejected"
+          requested_by: string
+          requested_role: string | null
+          requested_at: string
+          decided_by: string | null
+          decided_at: string | null
+          decision_note: string | null
+          applied_at: string | null
+        }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      notifications: {
+        Row: {
+          id: string
+          school_id: string
+          recipient_id: string
+          kind: string
+          title: string
+          body: string | null
+          link: string | null
+          created_at: string
+          read_at: string | null
+        }
+        Insert: never
+        Update: never
         Relationships: []
       }
       role_permissions: {
@@ -554,6 +673,9 @@ export type Database = {
           school_name: string
           school_type: string | null
           setup_completed: boolean | null
+          students_can_message: boolean
+          results_approval_required: boolean
+          correction_approval_required: boolean
           tagline: string | null
           updated_at: string
         }
@@ -574,6 +696,9 @@ export type Database = {
           school_name?: string
           school_type?: string | null
           setup_completed?: boolean | null
+          students_can_message?: boolean
+          results_approval_required?: boolean
+          correction_approval_required?: boolean
           tagline?: string | null
           updated_at?: string
         }
@@ -594,6 +719,9 @@ export type Database = {
           school_name?: string
           school_type?: string | null
           setup_completed?: boolean | null
+          students_can_message?: boolean
+          results_approval_required?: boolean
+          correction_approval_required?: boolean
           tagline?: string | null
           updated_at?: string
         }
@@ -843,6 +971,160 @@ export type Database = {
         Args: { _school: string; _full_name: string; _email: string; _role: Database["public"]["Enums"]["member_role"] }
         Returns: Json
       }
+      release_assessment: { Args: { _assessment: string; _release?: boolean }; Returns: undefined }
+      add_assessment_file: { Args: { _assessment: string; _name: string; _b64: string }; Returns: string }
+      remove_file: { Args: { _file: string }; Returns: undefined }
+      start_submission: { Args: { _assessment: string }; Returns: string }
+      save_submission: { Args: { _submission: string; _text: string }; Returns: undefined }
+      add_submission_file: { Args: { _submission: string; _name: string; _b64: string }; Returns: string }
+      submit_submission: { Args: { _submission: string }; Returns: Json }
+      return_submission: { Args: { _submission: string; _note: string }; Returns: undefined }
+      my_assignments: {
+        Args: { _school: string }
+        Returns: {
+          assessment_id: string
+          title: string
+          subject_name: string
+          class_name: string
+          kind: Database["public"]["Enums"]["assessment_kind"]
+          submission_format: string
+          starts_at: string | null
+          deadline_at: string | null
+          duration_minutes: number | null
+          max_score: number
+          attempts_allowed: number
+          attempts_used: number
+          submission_id: string | null
+          submission_status: string | null
+          submitted_at: string | null
+          is_late: boolean
+        }[]
+      }
+      get_assignment: { Args: { _assessment: string }; Returns: Json }
+      assessment_submissions: {
+        Args: { _assessment: string }
+        Returns: {
+          student_id: string
+          student_name: string
+          submission_id: string | null
+          attempt: number | null
+          status: string
+          submitted_at: string | null
+          is_late: boolean
+          files: number
+          has_text: boolean
+          attempts_used: number
+        }[]
+      }
+      get_submission: { Args: { _submission: string }; Returns: Json }
+      get_file: { Args: { _file: string }; Returns: Json }
+      report_audit_failure: { Args: { _school: string; _operation: string }; Returns: undefined }
+      audit_monitoring_status: { Args: Record<PropertyKey, never>; Returns: Json }
+      run_audit_health_check: { Args: Record<PropertyKey, never>; Returns: Json }
+      list_audit_incidents: {
+        Args: { _scope?: string }
+        Returns: {
+          id: string
+          ref: string
+          detected_at: string
+          last_seen_at: string
+          school_name: string | null
+          module: string
+          category: string
+          severity: string
+          status: string
+          operation: string | null
+          occurrences: number
+          business_outcome: string
+          assigned_to_label: string | null
+        }[]
+      }
+      get_audit_incident: { Args: { _id: string }; Returns: Json }
+      audit_incident_action: { Args: { _id: string; _action: string; _note?: string; _assignee?: string }; Returns: Json }
+      set_audit_settings: { Args: { _threshold: number; _window: number; _stale: number; _webhook: boolean }; Returns: undefined }
+      platform_admin_list: { Args: Record<PropertyKey, never>; Returns: { user_id: string; email: string }[] }
+      list_platform_alerts: {
+        Args: { _limit?: number }
+        Returns: { id: string; created_at: string; incident_id: string | null; kind: string; severity: string; title: string; body: string; read: boolean }[]
+      }
+      mark_platform_alerts_read: { Args: { _id?: string }; Returns: undefined }
+      request_correction: {
+        Args: { _assessment: string; _student: string; _new_score: number; _new_comment: string; _reason: string }
+        Returns: string
+      }
+      decide_correction: { Args: { _correction: string; _approve: boolean; _note?: string }; Returns: undefined }
+      set_grade_bands: { Args: { _school: string; _bands: Json }; Returns: undefined }
+      my_notifications: {
+        Args: { _school: string; _limit?: number }
+        Returns: { id: string; kind: string; title: string; body: string | null; link: string | null; created_at: string; read_at: string | null }[]
+      }
+      unread_notification_count: { Args: { _school: string }; Returns: number }
+      mark_notifications_read: { Args: { _school: string; _id?: string }; Returns: undefined }
+      student_report: { Args: { _student: string; _term?: string }; Returns: Json }
+      class_results: { Args: { _class: string; _term?: string }; Returns: Json }
+      message_recipients: {
+        Args: { _school: string }
+        Returns: { profile_id: string; full_name: string; roles: Database["public"]["Enums"]["member_role"][] }[]
+      }
+      start_conversation: { Args: { _school: string; _recipients: string[]; _subject: string; _body: string }; Returns: string }
+      send_message: { Args: { _conversation: string; _body: string }; Returns: string }
+      mark_conversation_read: { Args: { _conversation: string }; Returns: undefined }
+      my_conversations: {
+        Args: { _school: string }
+        Returns: {
+          conversation_id: string
+          subject: string
+          last_message_at: string
+          last_message_preview: string | null
+          last_sender_name: string | null
+          unread_count: number
+          participants: Json
+        }[]
+      }
+      conversation_thread: {
+        Args: { _conversation: string }
+        Returns: {
+          message_id: string
+          sender_id: string
+          sender_name: string
+          body: string | null
+          created_at: string
+          hidden: boolean
+          mine: boolean
+          reported: boolean
+        }[]
+      }
+      unread_message_count: { Args: { _school: string }; Returns: number }
+      report_message: { Args: { _message: string; _reason: string }; Returns: undefined }
+      hide_message: { Args: { _message: string; _reason: string }; Returns: undefined }
+      moderation_queue: {
+        Args: { _school: string }
+        Returns: {
+          message_id: string
+          conversation_id: string
+          sender_name: string
+          body: string
+          created_at: string
+          reported_at: string
+          reported_by_name: string | null
+          report_reason: string | null
+          hidden_at: string | null
+        }[]
+      }
+      role_permission_matrix: {
+        Args: { _school: string }
+        Returns: {
+          role: Database["public"]["Enums"]["member_role"]
+          permission: string
+          granted: boolean
+          is_default: boolean
+          changeable: boolean
+        }[]
+      }
+      set_role_permission: {
+        Args: { _school: string; _role: Database["public"]["Enums"]["member_role"]; _permission: string; _granted: boolean }
+        Returns: undefined
+      }
       has_permission: { Args: { _school: string; _permission: string }; Returns: boolean }
       is_member: { Args: { _school: string }; Returns: boolean }
       is_platform_admin: { Args: Record<PropertyKey, never>; Returns: boolean }
@@ -913,12 +1195,12 @@ export type Database = {
       assessment_kind: "classwork" | "homework" | "quiz" | "test" | "exam"
       assessment_status: "draft" | "submitted" | "approved" | "published"
       attendance_status: "present" | "absent" | "late" | "excused"
-      audience: "everyone" | "staff" | "students" | "parents"
-      audit_action: "user_created" | "user_updated" | "user_deleted" | "user_banned" | "user_suspended" | "user_activated" | "role_changed" | "config_updated" | "login" | "logout" | "password_reset" | "permission_changed" | "school_created" | "school_updated" | "member_invited" | "invitation_accepted" | "student_enrolled" | "enrollment_changed" | "guardian_linked" | "attendance_corrected" | "results_submitted" | "results_approved" | "results_published" | "results_reopened" | "record_created" | "record_updated" | "record_deleted"
+      audience: "everyone" | "staff" | "students" | "parents" | "teachers"
+      audit_action: "user_created" | "user_updated" | "user_deleted" | "user_banned" | "user_suspended" | "user_activated" | "role_changed" | "config_updated" | "login" | "logout" | "password_reset" | "permission_changed" | "school_created" | "school_updated" | "member_invited" | "invitation_accepted" | "student_enrolled" | "enrollment_changed" | "guardian_linked" | "attendance_corrected" | "results_submitted" | "results_approved" | "results_published" | "results_reopened" | "record_created" | "record_updated" | "record_deleted" | "message_hidden" | "conversation_started" | "result_correction_requested" | "results_corrected" | "correction_rejected" | "report_exported" | "grading_scale_changed"
       enrollment_status: "active" | "transferred" | "withdrawn" | "completed"
       event_category: "academic" | "exam" | "sports" | "holiday" | "meeting" | "other"
       guardian_link_status: "pending" | "verified" | "revoked"
-      member_role: "school_admin" | "teacher" | "student" | "parent" | "finance_officer" | "auditor"
+      member_role: "school_admin" | "teacher" | "student" | "parent" | "finance_officer" | "auditor" | "headteacher" | "academic_coordinator" | "librarian" | "receptionist"
       membership_status: "invited" | "active" | "suspended"
       school_status: "active" | "suspended"
       user_status: "active" | "suspended" | "banned" | "inactive"
@@ -1054,12 +1336,12 @@ export const Constants = {
       assessment_kind: ["classwork", "homework", "quiz", "test", "exam"],
       assessment_status: ["draft", "submitted", "approved", "published"],
       attendance_status: ["present", "absent", "late", "excused"],
-      audience: ["everyone", "staff", "students", "parents"],
-      audit_action: ["user_created", "user_updated", "user_deleted", "user_banned", "user_suspended", "user_activated", "role_changed", "config_updated", "login", "logout", "password_reset", "permission_changed", "school_created", "school_updated", "member_invited", "invitation_accepted", "student_enrolled", "enrollment_changed", "guardian_linked", "attendance_corrected", "results_submitted", "results_approved", "results_published", "results_reopened", "record_created", "record_updated", "record_deleted"],
+      audience: ["everyone", "staff", "students", "parents", "teachers"],
+      audit_action: ["user_created", "user_updated", "user_deleted", "user_banned", "user_suspended", "user_activated", "role_changed", "config_updated", "login", "logout", "password_reset", "permission_changed", "school_created", "school_updated", "member_invited", "invitation_accepted", "student_enrolled", "enrollment_changed", "guardian_linked", "attendance_corrected", "results_submitted", "results_approved", "results_published", "results_reopened", "record_created", "record_updated", "record_deleted", "message_hidden", "conversation_started", "result_correction_requested", "results_corrected", "correction_rejected", "report_exported", "grading_scale_changed"],
       enrollment_status: ["active", "transferred", "withdrawn", "completed"],
       event_category: ["academic", "exam", "sports", "holiday", "meeting", "other"],
       guardian_link_status: ["pending", "verified", "revoked"],
-      member_role: ["school_admin", "teacher", "student", "parent", "finance_officer", "auditor"],
+      member_role: ["school_admin", "teacher", "student", "parent", "finance_officer", "auditor", "headteacher", "academic_coordinator", "librarian", "receptionist"],
       membership_status: ["invited", "active", "suspended"],
       school_status: ["active", "suspended"],
       user_status: ["active", "suspended", "banned", "inactive"],

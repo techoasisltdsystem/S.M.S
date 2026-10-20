@@ -8,6 +8,7 @@ import BarChart from "@/components/kit/BarChart";
 import EventList, { upcoming } from "@/components/kit/EventList";
 import { Button } from "@/components/ui/button";
 import { useAdminOverview } from "@/hooks/useAdminOverview";
+import { money, useFeeSummary } from "@/hooks/useFees";
 import { useEnrollments, useEvents, useSchoolOverview, relative } from "@/hooks/useSchoolData";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -29,6 +30,7 @@ const AdminDashboard = () => {
   const activity = useAdminOverview(schoolId, can("audit.view"));
   const events = useEvents(schoolId);
   const enrollments = useEnrollments(schoolId);
+  const fees = useFeeSummary(schoolId, can("fees.view"));
 
   if (overview.isError) {
     return (
@@ -45,7 +47,7 @@ const AdminDashboard = () => {
   const newThisMonth = (enrollments.data ?? []).filter((e) => e.enrolled_on >= monthStart).length;
   const att = o?.attendance_today;
   const attTotal = att ? att.present + att.late + att.absent + att.excused : 0;
-  const staff = (o?.people.school_admin ?? 0) + (o?.people.teacher ?? 0) + (o?.people.finance_officer ?? 0) + (o?.people.auditor ?? 0);
+  const staff = Object.entries(o?.people ?? {}).reduce((n, [role, c]) => (role === "student" || role === "parent" ? n : n + (c as number)), 0);
 
   return (
     <>
@@ -145,7 +147,25 @@ const AdminDashboard = () => {
           </div>
 
           <Panel title="Finance Overview" icon={DollarSign} link={{ to: "/fees", label: "View Finance" }}>
-            <EmptyState icon={DollarSign} title="Fees and payments are not built yet" text="Fee collection, balances and defaulters arrive in Phase 5 with Paystack. No sample figures are shown here." />
+            {!can("fees.view") ? (
+              <EmptyState icon={DollarSign} title="Finance is for the finance office" text="Your role does not include fee figures." />
+            ) : fees.isLoading ? <Skeleton className="h-24" /> : fees.isError || !fees.data ? (
+              <EmptyState icon={DollarSign} title="Fees are not available" text={fees.error instanceof Error ? fees.error.message : "Your plan may not include fees."} action={{ to: "/fees", label: "Open fees" }} />
+            ) : fees.data.invoices === 0 ? (
+              <EmptyState icon={DollarSign} title="No invoices yet" text="Set up a fee and generate invoices for a class." action={{ to: "/fees", label: "Set up fees" }} />
+            ) : (
+              <div className="space-y-3">
+                <div className="grid grid-cols-3 gap-3 text-sm">
+                  <div><p className="text-xs text-muted-foreground">Billed</p><p className="font-heading text-lg font-bold">{money(fees.data.billed)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Collected</p><p className="font-heading text-lg font-bold text-success">{money(fees.data.collected)}</p></div>
+                  <div><p className="text-xs text-muted-foreground">Outstanding</p><p className="font-heading text-lg font-bold">{money(fees.data.outstanding)}</p></div>
+                </div>
+                <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuenow={Math.round((fees.data.collected / Math.max(fees.data.billed, 1)) * 100)} aria-valuemin={0} aria-valuemax={100} aria-label="Fees collected">
+                  <div className="h-full rounded-full bg-primary" style={{ width: `${Math.round((fees.data.collected / Math.max(fees.data.billed, 1)) * 100)}%` }} />
+                </div>
+                <p className="text-xs text-muted-foreground">{fees.data.overdue_count} overdue invoice{fees.data.overdue_count === 1 ? "" : "s"}{fees.data.overdue_count ? ` (${money(fees.data.overdue_amount)})` : ""}.</p>
+              </div>
+            )}
           </Panel>
         </div>
 

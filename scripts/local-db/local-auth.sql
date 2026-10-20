@@ -126,6 +126,35 @@ BEGIN
   RETURN auth_local.issue_session(u.id, u.email);
 END $$;
 
+-- Chooses a new password with a single-use reset token (see password_reset_requests). The token's
+-- digest is checked and burned, the password is stored as a bcrypt hash, and every open session of
+-- that login is signed out.
+CREATE OR REPLACE FUNCTION public.local_reset_password(_token TEXT, _password TEXT) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth_local, pg_temp AS $$
+DECLARE
+  r public.password_reset_requests;
+  u auth.users;
+BEGIN
+  IF length(COALESCE(_password, '')) < 8 THEN
+    RAISE EXCEPTION 'use at least 8 characters for your password' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO r FROM public.password_reset_requests
+   WHERE token_hash = sha256(convert_to(COALESCE(_token, ''), 'UTF8')) AND state IN ('requested', 'sent') AND used_at IS NULL AND expires_at > now()
+   FOR UPDATE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'this reset link is invalid or has expired' USING ERRCODE = '22023';
+  END IF;
+  SELECT * INTO u FROM auth.users WHERE lower(email) = r.email;
+  IF NOT FOUND THEN RAISE EXCEPTION 'this reset link is invalid or has expired' USING ERRCODE = '22023'; END IF;
+  UPDATE auth.users SET encrypted_password = crypt(_password, gen_salt('bf', 10)) WHERE id = u.id;
+  UPDATE auth_local.sessions SET revoked_at = now() WHERE user_id = u.id AND revoked_at IS NULL;
+  UPDATE public.password_reset_requests SET state = 'used', used_at = now(), token_hash = NULL WHERE id = r.id;
+  DELETE FROM auth_local.login_attempts WHERE email = r.email;
+  IF r.school_id IS NOT NULL THEN
+    PERFORM public.write_audit(r.school_id, 'password_reset_requested', 'user', r.target_profile_id, NULL, jsonb_build_object('request', r.id, 'completed', true));
+  END IF;
+END $$;
+
 -- PostgREST pre-request hook: rejects revoked or expired sessions.
 CREATE OR REPLACE FUNCTION auth_local.check_request() RETURNS VOID
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth_local, pg_temp AS $$
@@ -176,5 +205,6 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA auth_local FROM PUBLIC, anon, authenti
 GRANT EXECUTE ON FUNCTION auth_local.check_request() TO anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_logout(),
   public.local_accept_invitation(TEXT, TEXT) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_accept_invitation(TEXT, TEXT) TO anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.local_reset_password(TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_accept_invitation(TEXT, TEXT), public.local_reset_password(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.local_logout() TO authenticated;
