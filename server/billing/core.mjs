@@ -102,6 +102,8 @@ export const initialize = async (env, headers, { reference, claim }) => {
     body: JSON.stringify({
       email: order.email, amount: Number(order.total_minor), currency: order.currency, reference,
       callback_url: `${base}/checkout/return`,
+      // The buyer picks on Paystack's page; only the methods enabled on the merchant account are shown.
+      channels: (env('PAYSTACK_CHANNELS') || 'card,mobile_money,bank_transfer').split(',').map((c) => c.trim()).filter(Boolean),
       metadata: { order: reference, plan: order.plan, custom_fields: [] },
     }),
   })
@@ -110,8 +112,29 @@ export const initialize = async (env, headers, { reference, claim }) => {
   return { mode: 'paystack', url: body.data.authorization_url }
 }
 
+/** After a brand-new school is paid for, email the administrator their one-time confirmation link. Never fails the payment. */
+const sendWelcome = async (env, headers, reference, result) => {
+  if (!result?.ok || result.already) return
+  try {
+    const o = await one(env, `SELECT purpose, customer_email, invite_token, draft ->> 'school_name' AS school FROM public.billing_orders WHERE reference = $1`, [reference])
+    if (!o || o.purpose !== 'new_school' || !o.invite_token) return
+    if (!env('APP_URL') && !headers.host) return
+    const link = `${appUrl(env, headers)}/accept-invite?token=${o.invite_token}`
+    await sendMail(env, { to: o.customer_email, link, subject: 'Confirm your Tech Oasis SMS account',
+      text: `Your payment for ${o.school} was confirmed.
+
+Confirm your account and choose your administrator password here (the link works once and expires in 7 days):
+${link}
+
+Then sign in at ${appUrl(env, headers)}/login.` })
+    await one(env, `SELECT public.billing_record_event($1, 'verify', 'confirmation_email', NULL, NULL, 'sent', '{}')`, [reference])
+  } catch (e) {
+    await one(env, `SELECT public.billing_record_event($1, 'verify', 'confirmation_email', NULL, NULL, 'failed', $2::jsonb)`, [reference, JSON.stringify({ error: String(e.message).slice(0, 120) })]).catch(() => {})
+  }
+}
+
 /** Confirm with Paystack and settle. Safe to call repeatedly. */
-export const settleFromGateway = async (env, reference, source, externalId = null, signatureValid = null) => {
+export const settleFromGateway = async (env, reference, source, externalId = null, signatureValid = null, headers = {}) => {
   const order = (await one(env, `SELECT public.billing_gateway_order($1) AS o`, [reference])).o
   if (!order) {
     await one(env, `SELECT public.billing_record_event($1, $2, 'unknown_reference', $3, $4, 'ignored', '{}')`, [reference, source, externalId, signatureValid])
@@ -122,6 +145,7 @@ export const settleFromGateway = async (env, reference, source, externalId = nul
   const verify = await paystack(env, `/transaction/verify/${encodeURIComponent(reference)}`)
   const summary = summarise(verify.data)
   const result = (await one(env, `SELECT public.billing_settle($1, $2::jsonb, false) AS r`, [reference, JSON.stringify(summary)])).r
+  await sendWelcome(env, headers, reference, result)
   await one(env, `SELECT public.billing_record_event($1, $2, $3, $4, $5, $6, $7::jsonb)`,
     [reference, source, source === 'webhook' ? 'charge.success' : 'verify', externalId, signatureValid, result.status,
       JSON.stringify({ gateway_status: summary.status, amount_minor: summary.amount_minor, currency: summary.currency, channel: summary.channel })])
@@ -129,12 +153,12 @@ export const settleFromGateway = async (env, reference, source, externalId = nul
 }
 
 /** The return page asks us to confirm the payment; the answer comes from Paystack, not from the URL. */
-export const verify = async (env, { reference, claim }) => {
+export const verify = async (env, { reference, claim }, headers = {}) => {
   const order = await requireOrder(env, reference, claim)
   if (order.status === 'paid') return { status: 'paid' }
   if (order.gateway === 'demo') return { status: order.status }
   if (!env('PAYSTACK_SECRET_KEY')) throw new HttpError(503, 'Online payment is not configured.')
-  return settleFromGateway(env, reference, 'verify')
+  return settleFromGateway(env, reference, 'verify', null, null, headers)
 }
 
 const safeEqual = (a, b) => {
@@ -159,7 +183,7 @@ export const webhook = async (env, headers, rawBody) => {
   if (event?.event === 'charge.success' && reference) {
     // Settling is idempotent, so a repeated delivery is harmless. The event is recorded only after it
     // was handled: if Paystack was unreachable now, its retry must be processed, not skipped.
-    const result = await settleFromGateway(env, reference, 'webhook', null, true)
+    const result = await settleFromGateway(env, reference, 'webhook', null, true, headers)
     const fresh = await one(env, `SELECT public.billing_record_event($1, 'webhook', $2, $3, true, $4, '{}') AS fresh`, [reference, event.event, externalId, result.status ?? 'handled'])
     return fresh.fresh ? { received: true } : { received: true, duplicate: true }
   }
@@ -169,7 +193,7 @@ export const webhook = async (env, headers, rawBody) => {
 }
 
 /** Demo checkout: only when explicitly switched on, never in production, and every record is marked demo. */
-export const demoPay = async (env, { reference, claim, outcome }) => {
+export const demoPay = async (env, { reference, claim, outcome }, headers = {}) => {
   if (paymentMode(env) !== 'demo') throw new HttpError(404, 'Not found.')
   const order = await requireOrder(env, reference, claim)
   if (order.gateway !== 'demo') throw new HttpError(400, 'This order is not a demo order.')
@@ -177,6 +201,7 @@ export const demoPay = async (env, { reference, claim, outcome }) => {
   const verified = { status: outcome, amount_minor: Number(order.total_minor), currency: order.currency, channel: 'demo', transaction_id: `demo-${reference}`, gateway_response: `DEMO ${outcome}` }
   const result = (await one(env, `SELECT public.billing_settle($1, $2::jsonb, true) AS r`, [reference, JSON.stringify(verified)])).r
   await one(env, `SELECT public.billing_record_event($1, 'demo', $2, NULL, NULL, $3, '{}')`, [reference, outcome, result.status])
+  await sendWelcome(env, headers, reference, result)
   return { status: result.status }
 }
 

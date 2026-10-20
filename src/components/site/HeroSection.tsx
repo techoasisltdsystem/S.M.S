@@ -4,7 +4,8 @@ import {
   ArrowRight, BarChart3, Bell, BookOpen, CalendarDays, ChevronRight, ClipboardList, LayoutDashboard,
   MessageSquare, MessagesSquare, Play, Settings, ShieldCheck, UserCheck, UserPlus, Users, GraduationCap,
 } from "lucide-react";
-import schoolHero from "@/assets/school-hero.jpg";
+import HeroBackdrop from "@/components/site/HeroBackdrop";
+import { HERO_SETS } from "@/components/site/siteImages";
 
 const FEATURES = [
   { icon: Users, title: "Student Management", text: "Easily manage student records, profiles and academic progress." },
@@ -144,12 +145,7 @@ const DashboardMock = () => (
 const HeroSection = () => (
   <section id="top">
     <div className="relative isolate overflow-hidden bg-[#08193a] text-white">
-      <img
-        src={schoolHero}
-        alt=""
-        aria-hidden
-        className="absolute inset-0 -z-20 h-full w-full object-cover"
-      />
+      <HeroBackdrop images={HERO_SETS.home} every={6500} />
       <div className="absolute inset-0 -z-10 bg-gradient-to-r from-[#08193a]/95 via-[#0a2150]/75 to-[#0a2150]/35" aria-hidden />
       <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-gradient-to-t from-[#08193a]/60 to-transparent" aria-hidden />
 
@@ -165,12 +161,12 @@ const HeroSection = () => (
             Tech Oasis SMS is a modern, all-in-one school management system designed to simplify administration, improve communication, and support student success, all in one place.
           </p>
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-            <a
-              href="#contact"
+            <Link
+              to="/signup"
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full bg-blue-600 px-7 text-sm font-semibold text-white shadow-lg shadow-blue-900/40 transition hover:bg-blue-500 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
               Get Started <ArrowRight className="h-4 w-4" aria-hidden />
-            </a>
+            </Link>
             <a
               href="#preview"
               className="inline-flex h-12 items-center justify-center gap-2 rounded-full border border-white/40 bg-white/5 px-7 text-sm font-semibold text-white backdrop-blur transition hover:bg-white/15 focus:outline-none focus-visible:ring-2 focus-visible:ring-white"

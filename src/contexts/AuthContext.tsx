@@ -231,7 +231,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "This login has no active school access. Ask your school administrator to send you an invitation.",
       );
     }
-    const m = pick(list, null, screenRole);
+    // Each sign-in screen admits only its own kind of account. A teacher cannot use the student login, and so on.
+    const m = list.find((x) => LAYOUT_FOR[x.memberRole] === screenRole) ?? null;
+    if (!m) {
+      await signOut();
+      throw new AuthError("We could not sign you in. Check your details, and that you chose the login for your role.");
+    }
     await activate(list, m);
     if (m) await db.rpc("log_session_event", { _school: m.schoolId, _action: "login" });
   };

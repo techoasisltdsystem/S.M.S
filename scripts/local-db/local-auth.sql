@@ -155,6 +155,24 @@ BEGIN
   END IF;
 END $$;
 
+-- Changes the signed-in person's own password after checking the current one. Other open sessions
+-- of this login are signed out; the one making the change stays.
+CREATE OR REPLACE FUNCTION public.local_change_password(_current TEXT, _new TEXT) RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER SET search_path = public, auth_local, pg_temp AS $$
+DECLARE
+  u auth.users;
+  sid UUID := NULLIF(auth.jwt() ->> 'sid', '')::uuid;
+BEGIN
+  IF auth.uid() IS NULL THEN RAISE EXCEPTION 'sign in first' USING ERRCODE = '42501'; END IF;
+  IF length(COALESCE(_new, '')) < 8 THEN RAISE EXCEPTION 'use at least 8 characters for your new password' USING ERRCODE = '22023'; END IF;
+  SELECT * INTO u FROM auth.users WHERE id = auth.uid();
+  IF NOT FOUND OR crypt(COALESCE(_current, ''), u.encrypted_password) <> u.encrypted_password THEN
+    RAISE EXCEPTION 'your current password is not correct' USING ERRCODE = '42501';
+  END IF;
+  UPDATE auth.users SET encrypted_password = crypt(_new, gen_salt('bf', 10)) WHERE id = u.id;
+  UPDATE auth_local.sessions SET revoked_at = now() WHERE user_id = u.id AND revoked_at IS NULL AND id IS DISTINCT FROM sid;
+END $$;
+
 -- PostgREST pre-request hook: rejects revoked or expired sessions.
 CREATE OR REPLACE FUNCTION auth_local.check_request() RETURNS VOID
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public, auth_local, pg_temp AS $$
@@ -205,6 +223,7 @@ REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA auth_local FROM PUBLIC, anon, authenti
 GRANT EXECUTE ON FUNCTION auth_local.check_request() TO anon, authenticated;
 REVOKE EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_logout(),
   public.local_accept_invitation(TEXT, TEXT) FROM PUBLIC;
-REVOKE EXECUTE ON FUNCTION public.local_reset_password(TEXT, TEXT) FROM PUBLIC;
+REVOKE EXECUTE ON FUNCTION public.local_reset_password(TEXT, TEXT), public.local_change_password(TEXT, TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.local_change_password(TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.local_login(TEXT, TEXT), public.local_accept_invitation(TEXT, TEXT), public.local_reset_password(TEXT, TEXT) TO anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.local_logout() TO authenticated;

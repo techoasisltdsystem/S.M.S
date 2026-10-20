@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,6 +37,11 @@ import PlatformActivityPage from "./pages/PlatformActivityPage";
 import SchoolSupportPage from "./pages/SchoolSupportPage";
 import RolePermissionsPage from "./pages/RolePermissionsPage";
 import PricingPage from "./pages/PricingPage";
+import AboutPage from "./pages/AboutPage";
+import FeaturesPage from "./pages/FeaturesPage";
+import FaqPage from "./pages/FaqPage";
+import ContactPage from "./pages/ContactPage";
+import ProfilePage from "./pages/ProfilePage";
 import CheckoutPage from "./pages/CheckoutPage";
 import CheckoutReturnPage from "./pages/CheckoutReturnPage";
 import DemoCheckoutPage from "./pages/DemoCheckoutPage";
@@ -70,6 +76,28 @@ const ProtectedRoute = ({ children, permission, platform, schoolAdmin }: { child
   return <>{children}</>;
 };
 
+/**
+ * The sign-in screens always start fresh. Even if this browser is already signed in somewhere, visiting a login
+ * page signs that session out first, so the person must choose a login and enter their own credentials.
+ * After a successful sign-in the person goes to their dashboard.
+ */
+const FreshLogin = ({ children }: { children: React.ReactNode }) => {
+  const { isAuthenticated, loading, logout } = useAuth();
+  const [ready, setReady] = useState(false);
+  const started = useRef(false);
+  useEffect(() => {
+    if (loading || started.current) return;
+    started.current = true;
+    void (async () => {
+      if (isAuthenticated) await logout();
+      setReady(true);
+    })();
+  }, [loading, isAuthenticated, logout]);
+  if (!ready) return <Checking />;
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
+};
+
 const PublicRoute = ({ children }: { children: React.ReactNode }) => {
   const { isAuthenticated, loading } = useAuth();
   if (loading) return <Checking />;
@@ -80,11 +108,16 @@ const PublicRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => (
   <Routes>
     <Route path="/" element={<LandingPage />} />
-    <Route path="/login" element={<PublicRoute><Login /></PublicRoute>} />
-    <Route path="/admin" element={<PublicRoute><AdminLogin /></PublicRoute>} />
+    <Route path="/login" element={<FreshLogin><Login /></FreshLogin>} />
+    <Route path="/admin" element={<FreshLogin><AdminLogin /></FreshLogin>} />
     <Route path="/super-admin/login" element={<SuperAdminLogin />} />
     <Route path="/pricing" element={<PricingPage />} />
+    <Route path="/about" element={<AboutPage />} />
+    <Route path="/features" element={<FeaturesPage />} />
+    <Route path="/faq" element={<FaqPage />} />
+    <Route path="/contact" element={<ContactPage />} />
     <Route path="/checkout" element={<CheckoutPage />} />
+    <Route path="/signup" element={<CheckoutPage />} />
     <Route path="/checkout/return" element={<CheckoutReturnPage />} />
     <Route path="/checkout/demo" element={<DemoCheckoutPage />} />
     <Route path="/accept-invite" element={<AcceptInvite />} />
@@ -114,6 +147,8 @@ const AppRoutes = () => (
     <Route path="/admin-settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
+    <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    <Route path="/platform/profile" element={<ProtectedRoute platform><ProfilePage /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
     <Route path="/assignments" element={<ProtectedRoute><AssignmentsPage /></ProtectedRoute>} />
     <Route path="/role-permissions" element={<ProtectedRoute permission="staff.manage"><RolePermissionsPage /></ProtectedRoute>} />

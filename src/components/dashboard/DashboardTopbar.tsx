@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useSchool } from "@/contexts/SchoolContext";
-import { Bell, CalendarClock, ChevronDown, LogOut, Menu, MessageSquare, ShieldAlert } from "lucide-react";
+import { Bell, CalendarClock, ChevronDown, LogOut, Menu, UserRound, MessageSquare, ShieldAlert } from "lucide-react";
 import GlobalSearch from "@/components/dashboard/GlobalSearch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useUnseenReminders } from "@/hooks/useBilling";
@@ -115,8 +115,8 @@ const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
             </Button>
           </>
         )}
-        <DropdownMenu>
-          <DropdownMenuTrigger className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Account menu">
+        <div className="flex items-center">
+          <Link to={isPlatform ? "/platform/profile" : "/profile"} aria-label="Open my profile" className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 font-heading text-sm font-bold text-primary">
               {(user?.name ?? "?").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
             </span>
@@ -124,14 +124,17 @@ const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
               <span className="block text-sm font-medium leading-tight text-foreground">{user?.name}</span>
               <span className="block text-xs text-muted-foreground">{user ? MEMBER_ROLE_LABEL[user.memberRole] : ""}</span>
             </span>
-            <ChevronDown className="hidden h-4 w-4 text-muted-foreground sm:block" aria-hidden />
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="truncate">{user?.name}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => void logout()} className="text-destructive focus:text-destructive"><LogOut className="mr-2 h-4 w-4" aria-hidden /> Sign out</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </Link>
+          <DropdownMenu>
+            <DropdownMenuTrigger className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring" aria-label="Account menu"><ChevronDown className="h-4 w-4" aria-hidden /></DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel className="truncate">{user?.name}</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem asChild><Link to={isPlatform ? "/platform/profile" : "/profile"}><UserRound className="mr-2 h-4 w-4" aria-hidden /> My profile</Link></DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => void logout()} className="text-destructive focus:text-destructive"><LogOut className="mr-2 h-4 w-4" aria-hidden /> Sign out</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
     </header>
   );

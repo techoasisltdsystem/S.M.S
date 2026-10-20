@@ -269,6 +269,17 @@ export const resetPasswordWithToken = async (token: string, password: string) =>
   if (error) throw new AuthError(error.message)
 }
 
+/** Signed in: change your own password. Local sign-in checks the current one; hosted providers use their own session. */
+export const changeMyPassword = async (current: string, next: string) => {
+  if (dbProvider === 'local') {
+    const { error } = await db.rpc('local_change_password' as never, { _current: current, _new: next } as never)
+    if (error) throw new AuthError(error.message)
+    return
+  }
+  const { error } = await (neon ? neon.auth : db.auth).updateUser({ password: next })
+  if (error) throw new AuthError(error.message)
+}
+
 export const updatePassword = async (password: string) => {
   const { error } = await (neon ? neon.auth : db.auth).updateUser({ password })
   if (error) throw new AuthError(error.message)
