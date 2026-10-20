@@ -9,6 +9,8 @@ import Donut from "@/components/kit/Donut";
 import MonthCalendar from "@/components/kit/MonthCalendar";
 import EventList, { upcoming } from "@/components/kit/EventList";
 import { Skeleton } from "@/components/ui/skeleton";
+import PerformancePanel from "@/components/results/PerformancePanel";
+import { useSchool } from "@/contexts/SchoolContext";
 import {
   average, bandCounts, pct, useAnnouncements, useAssessments, useAssignments, useAttendance, useClasses, useDirectory,
   useEnrollments, useEvents, useGuardianLinks, useMarks, useStanding, useSubjects,
@@ -22,6 +24,7 @@ const greeting = () => {
 /** One student's dashboard. Students see themselves; parents see a verified child. The database enforces both. */
 export const StudentView = ({ studentId, name, viewer }: { studentId: string; name: string; viewer: "student" | "parent" }) => {
   const { user } = useAuth();
+  const { schoolConfig } = useSchool();
   const sid = user!.schoolId;
   const classes = useClasses(sid);
   const subjects = useSubjects(sid);
@@ -83,6 +86,14 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
           </>
         )}
       </div>
+
+      {!loading && (
+        <PerformancePanel data={{
+          studentId, studentName: name, className: d.cls?.name ?? null, average: standing.data?.average ?? d.avg, rank: standing.data?.rank ?? null,
+          classSize: standing.data?.class_size ?? null, attendancePct: d.attendancePct, attendanceDays: d.recs, results: d.results.map((r) => ({ subject: r.subject, title: r.title, kind: r.kind, at: r.at, score: r.score, max: r.max, p: r.p })),
+          schoolName: schoolConfig?.school_name || user!.schoolName, logoUrl: schoolConfig?.logo_url ?? null,
+        }} />
+      )}
 
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-5">
         <Panel title="Recent Results" icon={ClipboardList} link={{ to: "/exams", label: "View All Results" }} className="xl:col-span-3">

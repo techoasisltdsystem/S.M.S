@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Loader2, Lock, User } from "lucide-react";
 import { useAuth, UserRole } from "@/contexts/AuthContext";
@@ -18,6 +18,7 @@ interface GlassLoginProps {
 // teacher and parent sign-in screens, each with its own image and colours.
 const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
   const { login } = useAuth();
+  const navigate = useNavigate();
   const { schoolConfig } = useSchool();
   const t = GLASS_THEMES[role];
   const [id, setId] = useState("");
@@ -45,19 +46,7 @@ const GlassLogin = ({ role, onRoleChange }: GlassLoginProps) => {
     }
   };
 
-  const forgotPassword = async () => {
-    if (help) return setHelp(null);
-    if (!passwordResetAvailable) {
-      return setHelp("Password reset by email is not available on this server yet. Ask your school administrator to send you a new invitation.");
-    }
-    if (!id.trim()) return setHelp("Enter your email above, then choose Forgot password again.");
-    try {
-      await requestPasswordReset(id.trim());
-      setHelp("If that email has an account, a reset link is on its way. Check your inbox.");
-    } catch (err) {
-      setHelp(err instanceof Error ? err.message : "We could not send the reset email.");
-    }
-  };
+  const forgotPassword = () => navigate(`/forgot-password${id.trim() ? `?email=${encodeURIComponent(id.trim())}` : ""}`);
 
   const contact = [schoolConfig?.email, schoolConfig?.phone_number].filter(Boolean).join(" · ");
   const field = `h-12 w-full rounded-md border bg-white pl-10 pr-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 ${t.ring}`;

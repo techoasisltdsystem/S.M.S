@@ -251,6 +251,10 @@ const resetEmail = (env, headers, to, token, who) => {
 /** "Forgot password": always answers the same way, whether or not the address has an account. */
 export const recoverRequest = async (env, headers, { email }) => {
   if (typeof email !== 'string' || email.length > 200) throw new HttpError(400, 'Enter your email address.')
+  // Say so plainly if this server cannot send email at all, instead of pretending a message is on its way.
+  if (!(env('RESEND_API_KEY') && env('MAIL_FROM')) && !(env('MAIL_DEV_LOG') === 'on' && !isProduction(env))) {
+    throw new HttpError(503, 'Password reset email is not set up on this server yet. Please contact your school administrator.')
+  }
   const issued = (await one(env, `SELECT public.recovery_issue_for_email($1) AS r`, [email])).r
   if (issued) {
     try {

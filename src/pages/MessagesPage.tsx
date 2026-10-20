@@ -7,12 +7,13 @@ import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState"
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { AttachmentInput, MessageAttachments } from "@/components/messages/Attachments";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
-  useConversations, useMessagingActions, useModerationQueue, useThread, type Conversation, type ThreadMessage,
+  useConversations, useMessageFiles, useMessagingActions, useModerationQueue, useThread, type Conversation, type ThreadMessage,
 } from "@/hooks/useMessaging";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,8 @@ const Thread = ({ schoolId, conversation, onBack }: { schoolId: string; conversa
   const thread = useThread(conversation.conversation_id);
   const { send, markRead, report } = useMessagingActions(schoolId);
   const [draft, setDraft] = useState("");
+  const [files, setFiles] = useState<File[]>([]);
+  const msgFiles = useMessageFiles(conversation.conversation_id);
   const [reporting, setReporting] = useState<ThreadMessage | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const messages = thread.data ?? [];
@@ -74,11 +77,12 @@ const Thread = ({ schoolId, conversation, onBack }: { schoolId: string; conversa
   useEffect(() => { endRef.current?.scrollIntoView({ block: "end" }); }, [messages.length, conversation.conversation_id]);
 
   const submit = async () => {
-    const text = draft.trim();
+    const text = draft.trim() || (files.length ? "(attachment)" : "");
     if (!text) return;
     try {
-      await send.mutateAsync({ conversationId: conversation.conversation_id, body: text });
+      await send.mutateAsync({ conversationId: conversation.conversation_id, body: text, files });
       setDraft("");
+      setFiles([]);
     } catch (e) {
       toast({ title: "Message not sent", description: errMsg(e), variant: "destructive" });
     }
@@ -106,7 +110,10 @@ const Thread = ({ schoolId, conversation, onBack }: { schoolId: string; conversa
               {m.hidden ? (
                 <p className="flex items-center gap-1.5 italic opacity-80"><EyeOff className="h-3.5 w-3.5" aria-hidden /> Hidden by the school</p>
               ) : (
-                <p className="whitespace-pre-wrap break-words">{m.body}</p>
+                <>
+                  {m.body !== "(attachment)" && <p className="whitespace-pre-wrap break-words">{m.body}</p>}
+                  <MessageAttachments mine={m.mine} files={(msgFiles.data ?? []).filter((x) => x.message_id === m.message_id)} />
+                </>
               )}
               <p className="mt-1 flex items-center justify-end gap-2 text-[11px] opacity-70">
                 {when(m.created_at)}
@@ -127,6 +134,7 @@ const Thread = ({ schoolId, conversation, onBack }: { schoolId: string; conversa
         className="flex items-end gap-2 border-t border-border p-3"
         onSubmit={(e) => { e.preventDefault(); submit(); }}
       >
+        <AttachmentInput files={files} setFiles={setFiles} disabled={send.isPending} />
         <Textarea
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -137,7 +145,7 @@ const Thread = ({ schoolId, conversation, onBack }: { schoolId: string; conversa
           maxLength={5000}
           className="min-h-[44px] resize-none"
         />
-        <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={!draft.trim() || send.isPending} aria-label="Send reply">
+        <Button type="submit" size="icon" className="h-11 w-11 shrink-0" disabled={(!draft.trim() && files.length === 0) || send.isPending} aria-label="Send reply">
           {send.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
         </Button>
       </form>
