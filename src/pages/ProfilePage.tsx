@@ -26,6 +26,7 @@ const Row = ({ k, v }: { k: string; v: React.ReactNode }) => (
 
 const PasswordForm = () => {
   const { toast } = useToast();
+  const { clearMustChangePassword } = useAuth();
   const [f, setF] = useState({ current: "", next: "", confirm: "" });
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -36,7 +37,7 @@ const PasswordForm = () => {
     if (f.next.length < 8) return setErr("Use at least 8 characters for the new password.");
     if (f.next !== f.confirm) return setErr("The two new passwords do not match.");
     setBusy(true);
-    try { await changeMyPassword(f.current, f.next); toast({ title: "Password changed", description: "Other devices have been signed out." }); setF({ current: "", next: "", confirm: "" }); }
+    try { await changeMyPassword(f.current, f.next); toast({ title: "Password changed", description: "Other devices have been signed out." }); clearMustChangePassword(); setF({ current: "", next: "", confirm: "" }); }
     catch (e2) { setErr(errMsg(e2)); }
     finally { setBusy(false); }
   };
@@ -57,7 +58,7 @@ const PasswordForm = () => {
 
 /** Everything about the signed-in person, and the parts they may change. */
 const ProfilePage = () => {
-  const { user, isPlatform, logout } = useAuth();
+  const { user, isPlatform, logout, mustChangePassword } = useAuth();
   const { toast } = useToast();
   const qc = useQueryClient();
   const sid = user && !isPlatform ? user.schoolId : "";
@@ -76,6 +77,9 @@ const ProfilePage = () => {
   return (
     <DashboardLayout>
       <div className="mx-auto max-w-4xl space-y-5">
+        {mustChangePassword && (
+          <p role="alert" className="rounded-xl border border-warning/40 bg-warning/10 px-4 py-3 text-sm">You are using a temporary password. Choose your own below to continue; the rest of the site opens once you have.</p>
+        )}
         <section className="flex flex-wrap items-center gap-4 rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-card p-6 shadow-card">
           <span className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-primary text-2xl font-bold text-primary-foreground" aria-hidden>{initials(d?.name ?? user?.name ?? "?")}</span>
           <div className="min-w-0 flex-1">

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Loader2 } from "lucide-react";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { SchoolProvider } from "@/contexts/SchoolContext";
@@ -66,10 +66,13 @@ const Checking = () => (
 // Signed-in pages. `permission` hides a page from roles that cannot use it;
 // the database refuses those requests anyway.
 const ProtectedRoute = ({ children, permission, platform, schoolAdmin }: { children: React.ReactNode; permission?: string; platform?: boolean; schoolAdmin?: boolean }) => {
-  const { isAuthenticated, loading, mfa, can, isPlatform, user } = useAuth();
+  const { isAuthenticated, loading, mfa, can, isPlatform, user, mustChangePassword } = useAuth();
+  const where = useLocation();
   if (loading) return <Checking />;
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (mfa && mfa.kind !== "not_needed") return <MfaGate />;
+  // A temporary password must be replaced before anything else.
+  if (mustChangePassword && !where.pathname.endsWith("/profile")) return <Navigate to={isPlatform ? "/platform/profile" : "/profile"} replace />;
   if (platform ? !isPlatform : isPlatform) return platform ? <Forbidden /> : <Navigate to="/platform" replace />;
   if (permission && !can(permission)) return <Forbidden />;
   // Billing stays open to the School Admin of a lapsed (read-only) school so they can renew.

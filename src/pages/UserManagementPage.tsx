@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { motion } from 'framer-motion'
 import {
   Search, Plus, Eye, MoreHorizontal, Users, UserCheck,
-  Ban, UserMinus, Pencil, Shield, GraduationCap, UserCog, Loader2, Copy, Mail, Wallet, ClipboardCheck, BookOpen,
+  Ban, KeyRound, UserMinus, Pencil, Shield, GraduationCap, UserCog, Loader2, Copy, Mail, Wallet, ClipboardCheck, BookOpen,
 } from 'lucide-react'
 import { db } from '@/lib/db'
 import { useAuth, MEMBER_ROLE_LABEL, type MemberRole } from '@/contexts/AuthContext'
@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { useToast } from '@/hooks/use-toast'
+import LoginAccessDialog, { directLoginManagement } from '@/components/users/LoginAccessDialog'
 import { cn } from '@/lib/utils'
 import type { Database } from '@/integrations/supabase/types'
 
@@ -268,9 +269,10 @@ interface UserTableProps {
   onEdit: (p: SchoolPerson) => void
   onStatusChange: (p: SchoolPerson, status: UserStatus) => void
   onResend: (p: SchoolPerson) => void
+  onLogin: (p: SchoolPerson, mode: "password" | "email") => void
 }
 
-const UserTable = ({ people, loading, error, selfId, onView, onEdit, onStatusChange, onResend }: UserTableProps) => {
+const UserTable = ({ people, loading, error, selfId, onView, onEdit, onStatusChange, onResend, onLogin }: UserTableProps) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16" role="status">
@@ -358,6 +360,12 @@ const UserTable = ({ people, loading, error, selfId, onView, onEdit, onStatusCha
                               <Mail className="w-4 h-4 mr-2" /> New invitation link
                             </DropdownMenuItem>
                           )}
+                          {directLoginManagement && p.user_id && !p.memberships.some((m) => m.role === 'school_admin') && (
+                            <>
+                              <DropdownMenuItem onClick={() => onLogin(p, 'password')}><KeyRound className="w-4 h-4 mr-2" /> Set temporary password</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => onLogin(p, 'email')}><Mail className="w-4 h-4 mr-2" /> Change login email</DropdownMenuItem>
+                            </>
+                          )}
                           <DropdownMenuSeparator />
                           {p.status !== 'active' && (
                             <DropdownMenuItem onClick={() => onStatusChange(p, 'active')}>
@@ -398,6 +406,8 @@ const UserManagementPage = () => {
   const { user } = useAuth()
   const schoolId = user!.schoolId
   const [activeTab, setActiveTab] = useState<Tab>('all')
+  const [loginFor, setLoginFor] = useState<SchoolPerson | null>(null)
+  const [loginMode, setLoginMode] = useState<"password" | "email">('password')
   const [people, setPeople] = useState<SchoolPerson[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -544,10 +554,14 @@ const UserManagementPage = () => {
               onEdit={setEditing}
               onStatusChange={handleStatusChange}
               onResend={handleResend}
+              onLogin={(p, mode) => { setLoginMode(mode); setLoginFor(p) }}
             />
           </TabsContent>
         </Tabs>
       </motion.div>
+
+      <LoginAccessDialog mode={loginMode} onClose={() => setLoginFor(null)}
+        target={loginFor ? { schoolId, profileId: loginFor.id, name: loginFor.full_name, email: loginFor.email ?? '' } : null} />
 
       <Dialog open={inviting} onOpenChange={setInviting}>
         <DialogContent className="max-w-lg">

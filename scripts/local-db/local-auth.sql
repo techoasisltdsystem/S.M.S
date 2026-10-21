@@ -169,7 +169,7 @@ BEGIN
   IF NOT FOUND OR crypt(COALESCE(_current, ''), u.encrypted_password) <> u.encrypted_password THEN
     RAISE EXCEPTION 'your current password is not correct' USING ERRCODE = '42501';
   END IF;
-  UPDATE auth.users SET encrypted_password = crypt(_new, gen_salt('bf', 10)) WHERE id = u.id;
+  UPDATE auth.users SET encrypted_password = crypt(_new, gen_salt('bf', 10)), must_change_password = FALSE WHERE id = u.id;
   UPDATE auth_local.sessions SET revoked_at = now() WHERE user_id = u.id AND revoked_at IS NULL AND id IS DISTINCT FROM sid;
 END $$;
 
