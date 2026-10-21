@@ -39,7 +39,7 @@ const routes = {
 
 /** Handle one request for /api/billing/<action>. */
 export const handle = async (req, res, action, extraEnv = {}) => {
-  const route = routes[action]
+  const route = Object.hasOwn(routes, action) ? routes[action] : undefined
   try {
     if (!route) throw new HttpError(404, 'Not found.')
     if (req.method !== route.method) throw new HttpError(405, 'Method not allowed.')

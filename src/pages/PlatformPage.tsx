@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { LifeBuoy, Megaphone, UserPlus } from "lucide-react";
 import { AlertTriangle, BadgeCheck, Building2, CalendarClock, Copy, CreditCard, GraduationCap, HeartPulse, Receipt, Loader2, Plus, School, ShieldCheck, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
@@ -15,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import RecentEvents from "@/components/platform/RecentEvents";
+import { QuickActions } from "@/components/kit/Dash";
 import { useAuth } from "@/contexts/AuthContext";
 import { money, useBillingOverview } from "@/hooks/useBilling";
 import { relative } from "@/hooks/useSchoolData";
@@ -101,7 +103,7 @@ const PlatformPage = () => {
     <DashboardLayout>
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">Platform Console</h1>
+          <h1 className="font-heading text-2xl font-semibold text-primary">Dashboard</h1>
           <p className="text-sm text-muted-foreground">Registered schools and who can use them. Pupil records are not visible here.</p>
         </div>
         {canCreate && <Button onClick={() => setCreating(true)}><Plus className="mr-1 h-4 w-4" /> Register a school</Button>}
@@ -122,6 +124,17 @@ const PlatformPage = () => {
                 <KitStat icon={Users} tone="warning" label="Sign-ins (7 days)" value={o!.signins_7d} sub={`${o!.invited} people invited, not yet joined`} />
               </>
             )}
+          </div>
+
+          <div className="mb-6">
+            <QuickActions text="Easily access important platform tasks." actions={[
+              ...(canCreate ? [{ to: "/platform/schools", label: "Register School", icon: School, tone: "green" as const }] : []),
+              { to: "/platform/clients", label: "Clients", icon: Building2, tone: "blue" as const },
+              ...(can("billing.view") ? [{ to: "/platform/billing", label: "Payments", icon: Receipt, tone: "purple" as const }] : []),
+              ...(can("announcements.manage") ? [{ to: "/platform/announcements", label: "Announcement", icon: Megaphone, tone: "indigo" as const }] : []),
+              ...(can("admins.manage") ? [{ to: "/platform/admins", label: "Invite Admin", icon: UserPlus, tone: "orange" as const }] : []),
+              ...(can("support.view") ? [{ to: "/platform/support", label: "Support", icon: LifeBuoy, tone: "pink" as const }] : []),
+            ].slice(0, 5)} />
           </div>
 
           {bill && (

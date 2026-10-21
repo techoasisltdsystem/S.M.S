@@ -14,6 +14,11 @@ interface DashboardTopbarProps {
   onMenuToggle?: () => void;
 }
 
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+};
+
 const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
   const { user, memberships, switchMembership, isPlatform, logout } = useAuth();
   const { schoolConfig } = useSchool();
@@ -25,22 +30,18 @@ const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
   const keyOf = (m: { schoolId: string; memberRole: string }) => `${m.schoolId}:${m.memberRole}`;
 
   return (
-    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-4 sm:px-6">
-      <div className="flex min-w-0 items-center gap-3">
+    <header className="flex h-16 shrink-0 items-center justify-between gap-3 border-b border-border bg-card/90 px-4 backdrop-blur sm:px-6">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
         <Button variant="ghost" size="icon" className="lg:hidden" onClick={onMenuToggle} aria-label="Open menu">
           <Menu className="h-5 w-5" />
         </Button>
-        {!isPlatform && <GlobalSearch />}
-        <div className={`min-w-0 ${isPlatform ? "" : "md:hidden xl:block"}`}>
-          <p className="truncate font-heading text-sm font-semibold text-foreground">
-            {isPlatform ? "Tech Oasis platform" : schoolConfig?.school_name || user?.schoolName}
-          </p>
+        <div className="min-w-0">
+          <p className="truncate font-heading text-base font-semibold text-foreground sm:text-lg">{greeting()} {user?.name.split(" ")[0]}</p>
           <p className="hidden truncate text-xs text-muted-foreground sm:block">
-            {isPlatform
-              ? "Schools and access"
-              : [schoolConfig?.tagline, user?.schoolSuspended ? "Suspended: read-only" : ""].filter(Boolean).join(" · ") || "Main campus"}
+            {isPlatform ? "Tech Oasis platform console" : [schoolConfig?.school_name || user?.schoolName, user?.schoolSuspended ? "Suspended: read-only" : ""].filter(Boolean).join(" · ")}
           </p>
         </div>
+        {!isPlatform && <div className="hidden flex-1 justify-center lg:flex"><GlobalSearch /></div>}
         {user && memberships.length > 1 && (
           <select
             aria-label="Switch school or role"
@@ -117,7 +118,7 @@ const DashboardTopbar = ({ onMenuToggle }: DashboardTopbarProps) => {
         )}
         <div className="flex items-center">
           <Link to={isPlatform ? "/platform/profile" : "/profile"} aria-label="Open my profile" className="flex items-center gap-2 rounded-xl px-2 py-1.5 text-left hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 font-heading text-sm font-bold text-primary">
+            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary font-heading text-sm font-bold text-primary-foreground ring-2 ring-primary/20">
               {(user?.name ?? "?").split(" ").map((n) => n[0]).slice(0, 2).join("").toUpperCase()}
             </span>
             <span className="hidden sm:block">

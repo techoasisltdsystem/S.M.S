@@ -1,8 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, BarChart3, Bell, BookOpen, Calendar, CalendarClock, ChevronRight, ClipboardCheck, ClipboardList, Clock, FileText, MessageSquare, ShieldAlert, UserCheck, Users } from "lucide-react";
+import { AlertTriangle, FolderOpen, BarChart3, Bell, BookOpen, Calendar, CalendarClock, ChevronRight, ClipboardCheck, ClipboardList, Clock, FileText, MessageSquare, ShieldAlert, UserCheck, Users } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
+import { Chip, PageHeader, Progress, QuickActions, StatusPill, TableCard, td, th, todayLabel } from "@/components/kit/Dash";
+import { useQuery } from "@tanstack/react-query";
+import { rpc } from "@/lib/rpc";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import Donut from "@/components/kit/Donut";
 import BarChart from "@/components/kit/BarChart";
@@ -23,6 +26,11 @@ const greeting = () => {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 };
 
+const ACTIVITY: Record<string, string> = {
+  attendance_corrected: "Corrected attendance", results_submitted: "Submitted results", results_approved: "Approved results", results_published: "Published results",
+  resource_added: "Added a learning resource", concern_updated: "Answered a report", student_enrolled: "Enrolled a student", assessment_created: "Created an assessment",
+};
+
 const TeacherDashboard = () => {
   const { user } = useAuth();
   const sid = user!.schoolId;
@@ -41,6 +49,7 @@ const TeacherDashboard = () => {
   const hw = useHomeworkSummary(sid);
   const alertsFeed = useNotifications(sid);
   const [picked, setPicked] = useState<string | null>(null);
+  const recent = useQuery({ queryKey: ["my-activity", sid], queryFn: () => rpc<{ id: string; at: string; action: string; target: string | null }[]>("my_recent_activity", { _school: sid, _limit: 6 }) });
 
   const loading = [classes, subjects, assignments, timetable, enrollments, assessments, marks, attendance, events, notices].some((q) => q.isLoading);
   const failed = [classes, assignments, timetable, enrollments, assessments, marks, attendance].find((q) => q.isError);
@@ -98,7 +107,13 @@ const TeacherDashboard = () => {
     }).sort((a, b) => (a.level === b.level ? 0 : a.level === "High" ? -1 : 1));
 
     const marked = [...(events.data ?? []).map((e) => e.starts_at.slice(0, 10)), ...myAssessments.flatMap((a) => (a.due_on ? [a.due_on] : []))];
-    return { nowHm, myClasses, subjectName, className, slots, nextSlot, studentIds, drafts, flow, unregistered, perClass, alerts, marked, myAssessments };
+    const rosterOf = (cid: string) => active.filter((e) => e.class_id === cid).length;
+    const teaching = mine.map((a) => {
+      const list = myAssessments.filter((x) => x.class_id === a.class_id && x.subject_id === a.subject_id);
+      const published = list.filter((x) => x.status === "published").length;
+      return { key: a.id, subject: subjectName.get(a.subject_id) ?? "Subject", cls: className.get(a.class_id) ?? "Class", students: rosterOf(a.class_id), total: list.length, published, drafts: list.filter((x) => x.status === "draft").length };
+    });
+    return { nowHm, myClasses, subjectName, className, slots, nextSlot, studentIds, drafts, flow, unregistered, perClass, alerts, marked, myAssessments, takenToday, teaching };
   }, [classes.data, subjects.data, assignments.data, timetable.data, enrollments.data, assessments.data, marks.data, attendance.data, events.data, people.data, me]);
 
   const pending = d.drafts.length + d.unregistered.length;
@@ -113,42 +128,96 @@ const TeacherDashboard = () => {
     );
   }
 
+  const slotStatus = (st: string, en: string, cls: string) =>
+    d.nowHm >= hhmm(en) ? (d.takenToday.has(cls) ? { label: "Completed", tone: "green" as const } : { label: "Pending", tone: "orange" as const })
+      : d.nowHm >= hhmm(st) ? { label: "In progress", tone: "purple" as const } : { label: "Upcoming", tone: "grey" as const };
+
   return (
+    <>
+    <PageHeader title="Dashboard">
+      <Chip>{todayLabel()}</Chip>
+      <Chip to="/timetable" icon={CalendarClock}>{new Date().getFullYear()}</Chip>
+    </PageHeader>
+
+    <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      {loading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[112px] rounded-xl" />) : (
+        <>
+          <KitStat delay={0} to="/classes" icon={BookOpen} label="Assigned Classes" value={d.myClasses.length} sub="Classes assigned to you" />
+          <KitStat delay={0.06} to="/students" icon={Users} tone="info" label="Total Students" value={d.studentIds.size} sub="Across all classes" />
+          <KitStat delay={0.12} to="/timetable" icon={CalendarClock} tone="success" label="Today's Classes" value={d.slots.length} sub={d.nextSlot ? `Next: ${d.subjectName.get(d.nextSlot.subject_id) ?? "Lesson"} at ${hhmm(d.nextSlot.starts_at)}` : "Scheduled today"} />
+          <KitStat delay={0.18} to={d.unregistered.length ? "/attendance" : "/exams"} icon={ClipboardList} tone="warning" label="Pending Tasks" value={pending} sub="Attendance / results not completed" />
+        </>
+      )}
+    </div>
+
+    <div className="mb-5">
+      <TableCard title="Today's Classes" count={d.slots.length} action={<Link to="/timetable" className="text-xs font-medium text-primary hover:underline">Full timetable</Link>}>
+        {d.slots.length === 0 ? <div className="p-5"><EmptyState icon={CalendarClock} title="No lessons on your timetable today" /></div> : (
+          <table className="w-full">
+            <thead><tr><th className={th}>Subject</th><th className={th}>Class</th><th className={th}>Time</th><th className={th}>Room</th><th className={th}>Status</th><th className={th}><span className="sr-only">Actions</span></th></tr></thead>
+            <tbody className="divide-y divide-border">
+              {d.slots.map((s) => { const st = slotStatus(s.starts_at, s.ends_at, s.class_id); return (
+                <tr key={s.id} className="transition-colors hover:bg-muted/40">
+                  <td className={`${td} font-medium`}>{d.subjectName.get(s.subject_id) ?? "Lesson"}</td>
+                  <td className={td}>{d.className.get(s.class_id)}</td>
+                  <td className={`${td} whitespace-nowrap`}>{hhmm(s.starts_at)} – {hhmm(s.ends_at)}</td>
+                  <td className={`${td} text-muted-foreground`}>{s.room ?? "-"}</td>
+                  <td className={td}><StatusPill tone={st.tone}>{st.label}</StatusPill></td>
+                  <td className={`${td} text-right`}><Link to="/attendance" className="text-xs font-medium text-primary hover:underline">{d.takenToday.has(s.class_id) ? "View register" : "Take register"}</Link></td>
+                </tr>
+              ); })}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
+    </div>
+
+    <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <QuickActions layout="list" text="Easily access important teaching tasks." actions={[
+        { to: "/attendance", label: "Mark Attendance", icon: UserCheck, tone: "green" },
+        { to: "/exams", label: "Upload Results", icon: ClipboardCheck, tone: "pink" },
+        { to: "/resources", label: "Add Learning Resource", icon: FolderOpen, tone: "orange" },
+        { to: "/assignments", label: "Set Homework", icon: FileText, tone: "blue" },
+      ]} />
+      <section className="rounded-xl border border-border bg-card p-5 shadow-card">
+        <h2 className="font-heading text-base font-semibold text-card-foreground">Recent Activity</h2>
+        <p className="mb-4 text-xs text-muted-foreground">What you did most recently.</p>
+        {(recent.data ?? []).length === 0 ? <p className="text-sm text-muted-foreground">Nothing yet. Your registers, results and resources will show here.</p> : (
+          <ul className="space-y-3">
+            {recent.data!.slice(0, 4).map((r) => (
+              <li key={r.id} className="flex items-start gap-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><ClipboardCheck className="h-4 w-4" aria-hidden /></span>
+                <span className="min-w-0"><span className="block truncate text-sm font-medium">{ACTIVITY[r.action] ?? r.action.replace(/_/g, " ")}{r.target ? ` · ${r.target}` : ""}</span><span className="text-xs text-muted-foreground">{relative(r.at)}</span></span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+
+    <div className="mb-5">
+      <TableCard title="My Classes" count={d.teaching.length} action={<Link to="/classes" className="text-xs font-medium text-primary hover:underline">Open classes</Link>}>
+        {d.teaching.length === 0 ? <div className="p-5"><EmptyState icon={BookOpen} title="No classes assigned yet" text="Your school administrator assigns your classes and subjects." /></div> : (
+          <table className="w-full">
+            <thead><tr><th className={th}>Subject</th><th className={th}>Class</th><th className={th}>Students</th><th className={th}>Results Progress</th><th className={th}>Status</th></tr></thead>
+            <tbody className="divide-y divide-border">
+              {d.teaching.map((c) => (
+                <tr key={c.key} className="transition-colors hover:bg-muted/40">
+                  <td className={`${td} font-medium`}>{c.subject}</td>
+                  <td className={td}>{c.cls}</td>
+                  <td className={td}>{c.students}</td>
+                  <td className={`${td} w-1/3`}>{c.total ? <Progress value={(c.published / c.total) * 100} label={`${c.subject} ${c.cls} results published`} /> : <span className="text-xs text-muted-foreground">No assessments yet</span>}</td>
+                  <td className={td}>{c.total > 0 && c.published === c.total ? <StatusPill tone="grey">Completed</StatusPill> : c.drafts > 0 ? <StatusPill tone="orange">Drafts open</StatusPill> : <StatusPill tone="green">Active</StatusPill>}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </TableCard>
+    </div>
+
     <div className="grid grid-cols-1 gap-5 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div className="grid content-start gap-5">
-        <h1 className="font-heading text-2xl font-bold text-foreground">Teacher Dashboard</h1>
-
-        <div className="grid grid-cols-1 gap-5 min-[1400px]:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
-          <section className="grid grid-cols-1 items-center gap-4 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-primary/10 via-card to-info/10 p-6 shadow-card sm:grid-cols-[minmax(0,1fr)_auto] sm:p-8">
-            <div className="min-w-0">
-              <p className="font-heading text-2xl font-bold text-card-foreground sm:text-3xl">{greeting()}, {first}! <span aria-hidden>👋</span></p>
-              <p className="mt-2 text-muted-foreground">Empower minds. Inspire futures.</p>
-              <p className="mt-5 text-sm text-card-foreground">
-                You have {d.slots.length} class{d.slots.length === 1 ? "" : "es"} today and{" "}
-                <span className="font-semibold text-primary">{pending} pending task{pending === 1 ? "" : "s"}</span>.
-              </p>
-              <Button asChild className="mt-5 h-11 rounded-xl px-6"><Link to="/classes">View my classes <ArrowRight className="ml-2 h-4 w-4" aria-hidden /></Link></Button>
-            </div>
-            <TeacherArt />
-          </section>
-          <div className="grid gap-5 sm:grid-cols-2 min-[1400px]:grid-cols-1">
-            <ActionCard to="/attendance" icon={UserCheck} tone="bg-success/10 text-success" title="Take attendance" text="Record today's class register" cta="Open register" />
-            <ActionCard to="/exams" icon={ClipboardCheck} tone="bg-info/10 text-info" title="Enter marks" text="Create an assessment and grade it" cta="Open results" />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1400px]:grid-cols-4">
-          {loading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
-            <>
-              <KitStat tinted delay={0} icon={CalendarClock} label="Today's Classes" value={d.slots.length}
-                sub={d.nextSlot ? `Next: ${d.subjectName.get(d.nextSlot.subject_id) ?? "Lesson"}, ${d.className.get(d.nextSlot.class_id) ?? ""} ${hhmm(d.nextSlot.starts_at)}` : d.slots.length ? "All done for today" : "Nothing on the timetable today"} to="/timetable" />
-              <KitStat tinted delay={0.06} icon={Users} tone="success" label="Student Count" value={d.studentIds.size} sub={`Across ${d.myClasses.length} class${d.myClasses.length === 1 ? "" : "es"}`} to="/students" />
-              <KitStat tinted delay={0.12} icon={ClipboardList} tone="info" label="Results to Submit" value={d.drafts.length} sub="Draft assessments" to="/exams" />
-              <KitStat tinted delay={0.18} icon={UserCheck} tone="warning" label="Registers Due" value={d.unregistered.length} sub="Classes not marked today" to="/attendance" />
-            </>
-          )}
-        </div>
-
         <Panel title="Quick Links" icon={BookOpen}>
           <QuickLinks row links={[
             { to: "/classes", label: "Class Roster", icon: Users },
@@ -252,6 +321,7 @@ const TeacherDashboard = () => {
         </Panel>
       </aside>
     </div>
+    </>
   );
 };
 

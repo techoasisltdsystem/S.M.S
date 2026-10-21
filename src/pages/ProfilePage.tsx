@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { changeMyPassword, signIn } from "@/lib/db";
+import StudentExtras from "@/components/profile/StudentExtras";
 import RecentEvents from "@/components/platform/RecentEvents";
 import { rpc } from "@/lib/rpc";
 
@@ -169,6 +170,7 @@ const ProfilePage = () => {
             </Panel>
 
             <Panel title="Change password" icon={KeyRound}><PasswordForm /></Panel>
+            {user?.role === "student" && <StudentExtras schoolId={sid} studentId={user.id} />}
 
             {d.teaches.length > 0 && (
               <Panel title="What you teach" className="lg:col-span-2">

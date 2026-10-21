@@ -1,10 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, CreditCard, DollarSign, GraduationCap, Medal, Sparkles, UserCheck } from "lucide-react";
+import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, CreditCard, DollarSign, GraduationCap, Medal, UserCheck } from "lucide-react";
 import { money, useInvoices } from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
-import HeroBanner from "@/components/kit/HeroBanner";
+import { Chip, PageHeader, QuickActions, todayLabel } from "@/components/kit/Dash";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import Donut from "@/components/kit/Donut";
 import MonthCalendar from "@/components/kit/MonthCalendar";
@@ -75,12 +75,11 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
 
   return (
     <div className="grid gap-4">
-      <HeroBanner
-        eyebrow={viewer === "student" ? greeting() : "Viewing"}
-        title={viewer === "student" ? `${first}!` : name}
-        text={`${d.cls ? `${d.cls.name}${d.cls.level ? ` · ${d.cls.level}` : ""}` : "Not placed in a class yet"} · Stay updated with ${viewer === "student" ? "your" : "their"} academic journey.`}
-        icons={[GraduationCap, Award, Sparkles]}
-      />
+      <PageHeader title={viewer === "student" ? "Dashboard" : `${name}`}>
+        {d.cls && <Chip icon={GraduationCap}>{d.cls.name}{d.cls.level ? ` · ${d.cls.level}` : ""}</Chip>}
+        <Chip>{todayLabel()}</Chip>
+      </PageHeader>
+      {viewer === "student" && <p className="-mt-3 text-sm text-muted-foreground">{greeting()}, {first}. Stay updated with your academic journey.</p>}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         {loading || standing.isLoading ? [0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
@@ -97,6 +96,14 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
           </>
         )}
       </div>
+
+      <QuickActions text={viewer === "student" ? "Jump to what you need." : "Everything about your child, one click away."} actions={[
+        { to: "/exams", label: "Results", icon: ClipboardList, tone: "purple" },
+        { to: "/resources", label: "Learning Resources", icon: BookOpen, tone: "blue" },
+        { to: "/fees", label: viewer === "student" ? "My Fees" : "Pay Fees", icon: CreditCard, tone: "orange" },
+        { to: "/concerns", label: "Reports", icon: Bell, tone: "pink" },
+        { to: "/timetable", label: "Timetable", icon: Calendar, tone: "green" },
+      ]} />
 
       <Panel title={viewer === "student" ? "My School Fees" : "School Fees"} icon={DollarSign} link={{ to: "/fees", label: viewer === "student" ? "Open my fees" : "Open fees and pay" }}>
         {invoices.isLoading ? <Skeleton className="h-20" /> : invoices.isError ? (
