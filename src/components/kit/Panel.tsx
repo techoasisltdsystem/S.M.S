@@ -1,5 +1,6 @@
 import { ReactNode } from "react";
 import { Link } from "react-router-dom";
+import { motion, useReducedMotion } from "framer-motion";
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -11,11 +12,16 @@ interface PanelProps {
   className?: string;
 }
 
-export const Panel = ({ title, icon: Icon, link, children, className }: PanelProps) => (
-  <section className={cn("rounded-xl border border-border bg-card p-5 shadow-card", className)}>
+export const Panel = ({ title, icon: Icon, link, children, className }: PanelProps) => {
+  const reduced = !!useReducedMotion();
+  return (
+  <motion.section
+    initial={reduced ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, ease: "easeOut" }}
+    whileHover={reduced ? undefined : { y: -2 }}
+    className={cn("rounded-2xl border border-border bg-card p-5 shadow-card transition-shadow duration-300 hover:shadow-elevated", className)}>
     <header className="mb-4 flex items-center justify-between gap-3">
       <h2 className="flex items-center gap-2 font-heading text-base font-semibold text-card-foreground">
-        {Icon && <Icon className="h-4 w-4 text-primary" aria-hidden />}
+        {Icon && <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10"><Icon className="h-4 w-4 text-primary" aria-hidden /></span>}
         {title}
       </h2>
       {link && (
@@ -25,8 +31,9 @@ export const Panel = ({ title, icon: Icon, link, children, className }: PanelPro
       )}
     </header>
     {children}
-  </section>
-);
+  </motion.section>
+  );
+};
 
 interface EmptyProps {
   icon: LucideIcon;

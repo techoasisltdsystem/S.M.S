@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, DollarSign, Medal, UserCheck } from "lucide-react";
+import { AlertTriangle, Award, Bell, BookOpen, Calendar, CalendarCheck, ClipboardList, CreditCard, DollarSign, GraduationCap, Medal, Sparkles, UserCheck } from "lucide-react";
 import { money, useInvoices } from "@/hooks/useFees";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
+import HeroBanner from "@/components/kit/HeroBanner";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import Donut from "@/components/kit/Donut";
 import MonthCalendar from "@/components/kit/MonthCalendar";
@@ -36,6 +37,7 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
   const events = useEvents(sid);
   const notices = useAnnouncements(sid);
   const standing = useStanding(studentId);
+  const invoices = useInvoices(sid, { student: studentId });
 
   const loading = [classes, subjects, assignments, enrollments, assessments, marks, attendance].some((q) => q.isLoading);
   const failed = [classes, enrollments, assessments, marks, attendance].find((q) => q.isError);
@@ -58,6 +60,12 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
     return { cls, results, attendancePct: recs.length ? Math.round((attended / recs.length) * 100) : null, recs: recs.length, subjectCount, bands: bandCounts(results.map((r) => r.p)), avg: average(results.map((r) => r.p)) };
   }, [enrollments.data, classes.data, subjects.data, assessments.data, marks.data, attendance.data, assignments.data, studentId]);
 
+  const feeRows = (invoices.data ?? []).filter((i) => i.status !== "cancelled");
+  const owed = feeRows.reduce((n, r) => n + r.balance, 0);
+  const billed = feeRows.reduce((n, r) => n + r.total, 0);
+  const paidTotal = feeRows.reduce((n, r) => n + r.paid, 0);
+  const overdueRows = feeRows.filter((r) => r.status === "overdue");
+  const nextDue = feeRows.filter((r) => r.balance > 0).map((r) => r.due_on).sort()[0];
   const [picked, setPicked] = useState<string | null>(null);
   const first = (viewer === "student" ? user!.name : name).split(" ")[0];
 
@@ -67,25 +75,55 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
 
   return (
     <div className="grid gap-4">
-      <section className="flex flex-col justify-between gap-2 rounded-xl border border-border bg-gradient-to-r from-info/10 via-card to-primary/10 p-6 shadow-card">
-        <p className="font-heading text-sm text-muted-foreground">{viewer === "student" ? greeting() : "Viewing"}</p>
-        <h1 className="font-heading text-3xl font-bold text-card-foreground">{viewer === "student" ? `${first}!` : name}</h1>
-        <p className="text-sm text-muted-foreground">
-          {d.cls ? `${d.cls.name}${d.cls.level ? ` · ${d.cls.level}` : ""}` : "Not placed in a class yet"} · Stay updated with {viewer === "student" ? "your" : "their"} academic journey.
-        </p>
-      </section>
+      <HeroBanner
+        eyebrow={viewer === "student" ? greeting() : "Viewing"}
+        title={viewer === "student" ? `${first}!` : name}
+        text={`${d.cls ? `${d.cls.name}${d.cls.level ? ` · ${d.cls.level}` : ""}` : "Not placed in a class yet"} · Stay updated with ${viewer === "student" ? "your" : "their"} academic journey.`}
+        icons={[GraduationCap, Award, Sparkles]}
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5">
-        {loading || standing.isLoading ? [0, 1, 2, 3, 4].map((i) => <Skeleton key={i} className="h-[108px]" />) : (
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
+        {loading || standing.isLoading ? [0, 1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
           <>
-            <KitStat icon={Award} label="Average" value={standing.data?.average != null ? `${standing.data.average}%` : null} sub={d.results.length ? "Published results" : "No published results yet"} />
-            <KitStat icon={BookOpen} tone="success" label="Subjects" value={d.cls ? d.subjectCount : null} sub={d.cls ? "This year" : "Not in a class"} />
-            <KitStat icon={ClipboardList} tone="info" label="Results Published" value={d.results.length} sub="Assessments marked" />
-            <KitStat icon={Medal} tone="warning" label="Class Position" value={standing.data?.rank != null ? `${standing.data.rank}` : null} sub={standing.data?.rank != null ? `out of ${standing.data.class_size}` : "Needs published results"} />
-            <KitStat icon={UserCheck} tone="destructive" label="Attendance" value={d.attendancePct != null ? `${d.attendancePct}%` : null} sub={d.recs ? `${d.recs} day${d.recs === 1 ? "" : "s"} recorded` : "No register yet"} />
+            <KitStat delay={0} to="/exams" icon={Award} label="Average" value={standing.data?.average != null ? `${standing.data.average}%` : null} sub={d.results.length ? "Published results" : "No published results yet"} />
+            <KitStat delay={0.06} to="/timetable" icon={BookOpen} tone="success" label="Subjects" value={d.cls ? d.subjectCount : null} sub={d.cls ? "This year" : "Not in a class"} />
+            <KitStat delay={0.12} to="/exams" icon={ClipboardList} tone="info" label="Results Published" value={d.results.length} sub="Assessments marked" />
+            <KitStat delay={0.18} to="/exams" icon={Medal} tone="warning" label="Class Position" value={standing.data?.rank != null ? `${standing.data.rank}` : null} sub={standing.data?.rank != null ? `out of ${standing.data.class_size}` : "Needs published results"} />
+            <KitStat delay={0.3} to="/fees" icon={CreditCard} tone={overdueRows.length ? "destructive" : owed > 0 ? "warning" : "success"} label="School Fees"
+              value={invoices.isError ? null : feeRows.length ? money(owed) : null}
+              sub={invoices.isError ? "Fees are not available" : !feeRows.length ? "No invoices yet" : owed <= 0 ? "Paid in full" : overdueRows.length ? `${overdueRows.length} overdue` : nextDue ? `Next due ${new Date(`${nextDue}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "Outstanding"}
+              meter={billed > 0 ? (paidTotal / billed) * 100 : undefined} />
+            <KitStat delay={0.24} to="/attendance" icon={UserCheck} tone="destructive" label="Attendance" value={d.attendancePct != null ? `${d.attendancePct}%` : null} sub={d.recs ? `${d.recs} day${d.recs === 1 ? "" : "s"} recorded` : "No register yet"} />
           </>
         )}
       </div>
+
+      <Panel title={viewer === "student" ? "My School Fees" : "School Fees"} icon={DollarSign} link={{ to: "/fees", label: viewer === "student" ? "Open my fees" : "Open fees and pay" }}>
+        {invoices.isLoading ? <Skeleton className="h-20" /> : invoices.isError ? (
+          <EmptyState icon={DollarSign} title="Fees are not available" text="The school's plan may not include fees." />
+        ) : feeRows.length === 0 ? (
+          <EmptyState icon={DollarSign} title="No invoices yet" text="Invoices the school issues appear here, the same for the student and the parent." />
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div><p className="text-xs text-muted-foreground">Billed</p><p className="font-heading text-lg font-bold">{money(billed)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Paid</p><p className="font-heading text-lg font-bold text-success">{money(paidTotal)}</p></div>
+              <div><p className="text-xs text-muted-foreground">Outstanding</p><p className={`font-heading text-lg font-bold ${owed > 0 ? "text-warning" : "text-success"}`}>{money(owed)}</p></div>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Fees paid" aria-valuenow={Math.round(billed ? (paidTotal / billed) * 100 : 0)} aria-valuemin={0} aria-valuemax={100}>
+              <div className="h-full rounded-full bg-gradient-to-r from-primary to-success transition-all duration-700" style={{ width: `${billed ? Math.round((paidTotal / billed) * 100) : 0}%` }} />
+            </div>
+            <ul className="divide-y divide-border text-sm">
+              {feeRows.slice(0, 4).map((r) => (
+                <li key={r.id} className="flex items-center justify-between gap-2 py-2">
+                  <span className="min-w-0"><Link to="/fees" className="font-medium hover:underline">{r.title}</Link><span className="block text-xs text-muted-foreground">{r.number} · due {new Date(`${r.due_on}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></span>
+                  <span className="text-right"><span className="font-medium">{money(r.balance)}</span><span className={`block text-xs ${r.status === "overdue" ? "text-destructive" : r.status === "paid" ? "text-success" : "text-muted-foreground"}`}>{r.status === "paid" ? "Paid" : r.status === "overdue" ? "Overdue" : r.status === "part_paid" ? "Part paid" : "Unpaid"}</span></span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </Panel>
 
       {!loading && (
         <PerformancePanel data={{
@@ -141,9 +179,10 @@ export const StudentView = ({ studentId, name, viewer }: { studentId: string; na
               { to: "/attendance", label: "Attendance", icon: UserCheck },
               { to: "/timetable", label: "Timetable", icon: Calendar },
               { to: "/calendar", label: "Notices", icon: Bell },
+              { to: "/fees", label: "Fees", icon: DollarSign },
             ].map((l) => (
-              <Link key={l.to} to={l.to} className="flex flex-col items-center gap-2 rounded-lg bg-muted/50 p-3 text-center text-xs font-medium transition-colors hover:bg-primary/10">
-                <l.icon className="h-6 w-6 text-primary" aria-hidden /> {l.label}
+              <Link key={l.to} to={l.to} className="group flex flex-col items-center gap-2 rounded-xl bg-muted/50 p-3 text-center text-xs font-medium transition-all duration-200 hover:-translate-y-1 hover:bg-primary/10 hover:shadow-elevated">
+                <l.icon className="h-6 w-6 text-primary transition-transform duration-200 group-hover:scale-125" aria-hidden /> {l.label}
               </Link>
             ))}
           </div>
@@ -165,21 +204,17 @@ export const StudentDashboard = () => {
 };
 
 /** Parent dashboard: children whose link the school has verified. */
-/** Outstanding fees for one child. Hidden if the school's plan has no fees or there are no invoices. */
-const ParentFeesCard = ({ schoolId, studentId }: { schoolId: string; studentId: string }) => {
+/** One line per child with what is owed, so a parent with several children sees the whole family at a glance. Each figure is that child's own account. */
+const ChildSummary = ({ schoolId, studentId, name, active, onPick }: { schoolId: string; studentId: string; name: string; active: boolean; onPick: () => void }) => {
   const q = useInvoices(schoolId, { student: studentId });
-  const rows = q.data ?? [];
-  if (q.isLoading || q.isError || rows.length === 0) return null;
+  const rows = (q.data ?? []).filter((i) => i.status !== "cancelled");
   const owed = rows.reduce((n, r) => n + r.balance, 0);
-  const overdue = rows.filter((r) => r.status === "overdue").length;
   return (
-    <Panel title="Fees" icon={DollarSign} link={{ to: "/fees", label: "View invoices" }}>
-      <p className="font-heading text-2xl font-bold text-card-foreground">{money(owed)}</p>
-      <p className="text-sm text-muted-foreground">
-        outstanding across {rows.filter((r) => r.balance > 0).length} invoice{rows.filter((r) => r.balance > 0).length === 1 ? "" : "s"}
-        {overdue > 0 ? `, ${overdue} overdue` : ""}
-      </p>
-    </Panel>
+    <button type="button" onClick={onPick} aria-pressed={active}
+      className={`rounded-2xl border p-4 text-left shadow-card transition-all duration-200 hover:-translate-y-1 hover:shadow-elevated ${active ? "border-primary bg-primary/5" : "border-border bg-card"}`}>
+      <p className="font-heading text-sm font-semibold">{name}</p>
+      <p className="text-xs text-muted-foreground">{q.isLoading ? "Loading fees…" : rows.length === 0 ? "No invoices" : owed > 0 ? `Owes ${money(owed)}` : "Fees paid in full"}</p>
+    </button>
   );
 };
 
@@ -208,16 +243,10 @@ export const ParentDashboard = () => {
   return (
     <div className="grid gap-4">
       {verified.length > 1 && (
-        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Children">
-          {verified.map((l) => (
-            <button key={l.id} role="tab" aria-selected={l.id === active.id} onClick={() => setChosen(l.student_id)}
-              className={`rounded-full border px-4 py-1.5 text-sm font-medium transition-colors ${l.id === active.id ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card hover:bg-muted"}`}>
-              {name.get(l.student_id) ?? "Child"}
-            </button>
-          ))}
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4" role="group" aria-label="My children">
+          {verified.map((l) => <ChildSummary key={l.id} schoolId={sid} studentId={l.student_id} name={name.get(l.student_id) ?? "Child"} active={l.id === active.id} onPick={() => setChosen(l.student_id)} />)}
         </div>
       )}
-      <ParentFeesCard key={active.student_id} schoolId={sid} studentId={active.student_id} />
       <StudentView studentId={active.student_id} name={name.get(active.student_id) ?? "Your child"} viewer="parent" />
     </div>
   );
