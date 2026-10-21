@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { changeMyPassword, signIn } from "@/lib/db";
+import RecentEvents from "@/components/platform/RecentEvents";
 import { rpc } from "@/lib/rpc";
 
 interface Details {
@@ -191,6 +192,7 @@ const ProfilePage = () => {
           <Panel title="Change password" icon={KeyRound} className="mt-5">
             <PasswordForm />
           </Panel>
+          <div className="mt-5"><RecentEvents mine title="Your recent sign-ins and account changes" /></div>
 </>
         )}
       </div>

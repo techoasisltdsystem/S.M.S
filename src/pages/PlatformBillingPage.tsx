@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useAuth } from "@/contexts/AuthContext";
 import { money, rpcExportTransactions, stamp, useBillingOverview, useReconciliation, useTransactions, type BillingOverview } from "@/hooks/useBilling";
 import { useDebounced } from "@/hooks/useDebounced";
 
@@ -64,6 +65,7 @@ const Transactions = () => {
   const rows = tx.data ?? [];
   const total = Number(rows[0]?.total_rows ?? 0);
   const pages = Math.max(1, Math.ceil(total / SIZE));
+  const { can } = useAuth();
   const exportCsv = async () => {
     const all = await rpcExportTransactions(status === ALL ? "" : status, dq);
     const head = ["reference", "school", "package", "interval", "currency", "amount", "status", "channel", "demo", "created", "paid", "email"];
@@ -86,7 +88,7 @@ const Transactions = () => {
           <SelectTrigger aria-label="Status" className="w-44"><SelectValue /></SelectTrigger>
           <SelectContent><SelectItem value={ALL}>Any status</SelectItem>{Object.entries(ORDER_LABEL).map(([v, l]) => <SelectItem key={v} value={v}>{l}</SelectItem>)}</SelectContent>
         </Select>
-        <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" aria-hidden /> Export CSV</Button>
+        {can("billing.export") && <Button variant="outline" onClick={exportCsv}><Download className="mr-2 h-4 w-4" aria-hidden /> Export CSV</Button>}
       </div>
       {tx.isLoading && <LoadingRows rows={4} />}
       {tx.isError && <ErrorBox message={errMsg(tx.error)} onRetry={() => tx.refetch()} />}

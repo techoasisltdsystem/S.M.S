@@ -266,6 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new AuthError("We could not sign you in. Check your details and try again.");
     }
     await activatePlatform(authId, email.trim().toLowerCase());
+    void db.rpc("platform_log_signin" as never);
   };
 
   const logout = async () => {

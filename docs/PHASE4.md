@@ -127,3 +127,15 @@ Set these in `.env.local` (laptop) or the host's environment (never in the brows
 - **Password reset for another admin**: sends the provider's reset email; the Super Admin never sees a password.
 - Tests: `supabase/tests/platform_roles.sql` (21 checks).
 - Not built yet: per-action create/edit/suspend/approve/export permissions (only view/manage), invite-accept audit entries, login/session history, forced email verification on email change.
+
+## Platform operations (migration `20261030140000_platform_ops.sql`)
+
+- **Event log** (`platform_events`, `/platform/events`): append-only (a trigger refuses edits and deletes). Records sign-ins, invitations, role/access changes, switch-off/restore, sign-in email changes, announcements, report views, transaction exports and support assignments, with actor, time, subject and detail. Never stores passwords or tokens. Viewed with `audit.view`; every administrator can read their own history on their account page.
+- **Finer permissions**: `clients.create`, `clients.suspend`, `billing.export`, `announcements.manage` added. Presets updated; `/platform/roles` shows the matrix.
+- **Announcements** (`/platform/announcements`): draft, publish, unpublish, archive; type (notice / maintenance / product update); audience (everyone, school administrators, teachers, students, parents); optional start and end time; reach count. Published ones appear as a banner for the audience (`my_platform_announcements`).
+- **Analytics and reports** (`/platform/reports`): any date range up to three years; revenue by month and package, registrations, paid/pending/failed counts; CSV download. Demo payments excluded.
+- **Invoices and receipts** (`/platform/invoices`): paid orders with receipt PDF from the stored order (`platform_receipt`). Transaction export needs `billing.export` and is logged.
+- **School onboarding / administrators / usage**: read-only views from real records (counts only, no pupil data). Schools activate when payment is verified, so there is no separate approval queue.
+- **Support**: requests can be assigned to a platform administrator (`support_assign`).
+- **Recovery and backups**: the database is Neon Postgres; backups and point-in-time restore are provided and controlled in the Neon console, not from this app. To recover: restore the branch in Neon to the wanted time, point `DATABASE_URL` at it, redeploy. No destructive data controls were added to the console.
+- Not applicable / not built: discounts and promotions (no such billing model), help documentation, forced email verification on sign-in email change (Neon Auth flow not confirmed), session revocation of other devices (password change already signs others out on the local login).

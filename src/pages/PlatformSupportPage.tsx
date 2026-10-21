@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Eye, KeyRound, LifeBuoy, Loader2, LogOut } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import { EmptyState, Panel } from "@/components/kit/Panel";
 import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState";
@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import { useAccessGrants, useConsoleActions, useSubscriptions, useSupportRequests, type AccessGrant } from "@/hooks/usePlatformConsole";
 import { rpc } from "@/lib/rpc";
@@ -37,6 +38,12 @@ interface SupportView {
   staff_accounts: { name: string; email: string | null; role: string; status: string }[];
   recent_activity: { created_at: string; actor_role: string | null; action: string; target_type: string; details: Record<string, unknown> }[];
 }
+
+/** Who on the platform team has picked up each request. */
+const useAssignments = () => ({
+  list: useQuery({ queryKey: ["support-assignments"], queryFn: () => rpc<{ request_id: string; assignee_id: string; assignee_email: string }[]>("support_assignments") }),
+  team: useQuery({ queryKey: ["support-team"], staleTime: 60_000, queryFn: () => rpc<{ user_id: string; email: string }[]>("platform_admin_list") }),
+});
 
 const SupportViewDialog = ({ grant, onClose }: { grant: AccessGrant | null; onClose: () => void }) => {
   const view = useQuery({ queryKey: ["support-view", grant?.id], enabled: !!grant, retry: false, staleTime: Infinity, refetchOnWindowFocus: false, queryFn: () => rpc<SupportView>("support_view_school", { _grant: grant!.id }) });
@@ -142,6 +149,14 @@ const RequestAccessDialog = ({ open, onClose, schoolId }: { open: boolean; onClo
 
 const PlatformSupportPage = () => {
   const { toast } = useToast();
+  const qc = useQueryClient();
+  const { can } = useAuth();
+  const { list: assigned, team } = useAssignments();
+  const assignee = (id: string) => (assigned.data ?? []).find((a) => a.request_id === id)?.assignee_id ?? "";
+  const assign = async (request: string, user: string) => {
+    try { await rpc("support_assign", { _request: request, _user: user || null }); toast({ title: user ? "Request assigned" : "Assignment removed" }); void qc.invalidateQueries({ queryKey: ["support-assignments"] }); }
+    catch (e) { toast({ title: "Not assigned", description: errMsg(e), variant: "destructive" }); }
+  };
   const [status, setStatus] = useState("active");
   const requests = useSupportRequests(null, status === "all" ? null : status);
   const grants = useAccessGrants(null);
@@ -178,6 +193,13 @@ const PlatformSupportPage = () => {
                       <span className={cn("text-xs capitalize", r.priority === "urgent" || r.priority === "high" ? "font-semibold text-destructive" : "text-muted-foreground")}>{r.priority}</span>
                       <StatusPill status={r.status} />
                     </button>
+                    <div className="flex items-center gap-2 pb-2 text-xs text-muted-foreground">
+                      <label htmlFor={"as-" + r.id}>Assigned to</label>
+                      <select id={"as-" + r.id} disabled={!can("support.manage")} value={assignee(r.id)} onChange={(e) => void assign(r.id, e.target.value)} className="h-8 rounded-md border border-input bg-background px-2 text-xs">
+                        <option value="">Nobody yet</option>
+                        {(team.data ?? []).map((m) => <option key={m.user_id} value={m.user_id}>{m.email}</option>)}
+                      </select>
+                    </div>
                   </li>
                 ))}
               </ul>

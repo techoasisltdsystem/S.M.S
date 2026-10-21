@@ -2,6 +2,7 @@ import { ReactNode, useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import DashboardSidebar from "@/components/dashboard/DashboardSidebar";
+import AnnouncementBanner from "@/components/dashboard/AnnouncementBanner";
 import DashboardTopbar from "@/components/dashboard/DashboardTopbar";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
@@ -28,6 +29,7 @@ const DashboardLayout = ({ children }: { children: ReactNode }) => {
               : "Ask your school administrator to renew it."}
           </p>
         )}
+        <AnnouncementBanner />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">{children}</main>
       </div>
     </div>

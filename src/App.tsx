@@ -34,6 +34,12 @@ import FeesPage from "./pages/FeesPage";
 import AuditMonitoringPage from "./pages/AuditMonitoringPage";
 import PlatformSubscriptionsPage from "./pages/PlatformSubscriptionsPage";
 import PlatformSupportPage from "./pages/PlatformSupportPage";
+import PlatformEventsPage from "./pages/PlatformEventsPage";
+import PlatformAnnouncementsPage from "./pages/PlatformAnnouncementsPage";
+import PlatformReportsPage from "./pages/PlatformReportsPage";
+import PlatformInvoicesPage from "./pages/PlatformInvoicesPage";
+import PlatformSchoolsInsightPage from "./pages/PlatformSchoolsInsightPage";
+import PlatformRolesPage from "./pages/PlatformRolesPage";
 import PlatformInvitePage from "./pages/PlatformInvitePage";
 import PlatformTeamPage from "./pages/PlatformTeamPage";
 import PlatformHealthPage from "./pages/PlatformHealthPage";
@@ -157,6 +163,14 @@ const AppRoutes = () => (
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
     <Route path="/platform-invite" element={<PlatformInvitePage />} />
+    <Route path="/platform/events" element={<ProtectedRoute platform permission="audit.view"><PlatformEventsPage /></ProtectedRoute>} />
+    <Route path="/platform/announcements" element={<ProtectedRoute platform permission="announcements.manage"><PlatformAnnouncementsPage /></ProtectedRoute>} />
+    <Route path="/platform/reports" element={<ProtectedRoute platform permission="billing.view"><PlatformReportsPage /></ProtectedRoute>} />
+    <Route path="/platform/invoices" element={<ProtectedRoute platform permission="billing.view"><PlatformInvoicesPage /></ProtectedRoute>} />
+    <Route path="/platform/onboarding" element={<ProtectedRoute platform permission="clients.view"><PlatformSchoolsInsightPage view="onboarding" /></ProtectedRoute>} />
+    <Route path="/platform/school-admins" element={<ProtectedRoute platform permission="clients.view"><PlatformSchoolsInsightPage view="admins" /></ProtectedRoute>} />
+    <Route path="/platform/usage" element={<ProtectedRoute platform permission="clients.view"><PlatformSchoolsInsightPage view="usage" /></ProtectedRoute>} />
+    <Route path="/platform/roles" element={<ProtectedRoute platform permission="admins.manage"><PlatformRolesPage /></ProtectedRoute>} />
     <Route path="/platform/admins" element={<ProtectedRoute platform permission="admins.manage"><PlatformTeamPage /></ProtectedRoute>} />
     <Route path="/platform/health" element={<ProtectedRoute platform permission="health.view"><PlatformHealthPage /></ProtectedRoute>} />
     <Route path="/platform/profile" element={<ProtectedRoute platform><ProfilePage /></ProtectedRoute>} />
