@@ -183,3 +183,28 @@ Set these in `.env.local` (laptop) or the host's environment (never in the brows
 - **Student profile:** School Information (class, class teacher, admission date, years, subjects) and Parent/Guardian tabs.
 - Tests: `supabase/tests/resources_concerns.sql` (33 checks).
 - **Not built (from the reference images):** CBT (online tests with live proctoring), Virtual Class (live video), Payroll. Each needs its own phase; live video also needs a video provider.
+
+## CBT, Virtual Class and Payroll (migrations `20261102090000` to `20261102140000`)
+
+**CBT** (`/cbt`, exam screen `/cbt/take/:id`)
+- Question bank per subject: multiple choice, true/false, short answer (accepted answers, not case-sensitive), essay; marks and difficulty. Teachers write for subjects they teach; `cbt.manage` (admin, headteacher, academic coordinator) for all.
+- Tests for one class: window (opens/closes), duration, shuffle, violations allowed. A test stores its own copy of each question, so editing the bank never changes a set test. Publish notifies the class; close ("End for all") submits unfinished attempts.
+- Taking a test: the server sets the deadline (start + duration, never past the window), sends questions without the answer key, autosaves every 8 s, refuses saves after the deadline and submits instead. Tab switches, window blur, copy, paste, right-click and leaving full screen are reported; going over the limit terminates the attempt (saved answers are marked).
+- Marking is server-side; essays wait for the teacher (Grading tab). Results are released by the teacher only after every essay is graded. Students see their score after release; parents see their child's status and score.
+- Live roster (teacher, refreshes every 5 s): status, progress, time remaining, violations per student. Dashboard: tests, upcoming, attempts, pending grading, average score, completion rate, average by class.
+- Not built: per-question images/equations, question import from files, webcam proctoring.
+
+**Virtual Class** (`/virtual-class`, room `/virtual-class/:id`)
+- Teachers schedule a lesson for a class they teach (`vclass.manage` for any); students are notified; the teacher starts it, students of that class can join only while live; parents see the schedule and recordings but cannot enter.
+- Video runs in an embedded Jitsi Meet room with an unguessable name, returned by the server only to people allowed in. Default server `meet.jit.si` (free, no account; it may ask the first person, the teacher, to sign in with Google/GitHub to start a room). Set `VITE_JITSI_DOMAIN` to use a self-hosted or paid (8x8 JaaS) Jitsi.
+- Attendance is recorded automatically (join, heartbeat every 30 s, leave); hosts see minutes per person. Recordings are added as links after the class (Jitsi on meet.jit.si does not record to our servers).
+- Figures: total, live, upcoming today, students online, sessions per month, attendance rate per month.
+
+**Payroll** (`/payroll`; staff without payroll rights see "My Payslips")
+- Salary profiles (basic, currency, grade, bank, account, TIN; on/off payroll), allowances and deductions (fixed or % of basic; for everyone or one person), salary advances (request up to 3× basic, repaid monthly; decided by an approver who is not the requester).
+- Monthly run: create → calculate (payslips, warnings such as missing bank account) → approve by `payroll.approve`, never the person who created or calculated it → mark paid with a bank reference (advances reduced, staff notified). Approved/paid runs cannot be recalculated or cancelled. One run per month.
+- Payslips as PDF for staff and payroll officers; account numbers masked on payslips. Dashboard with status steps and activity log; full audit tab.
+- Permissions: `payroll.manage` (school admin, finance officer), `payroll.approve` (school admin, headteacher). A school with only one administrator needs a headteacher or a second approver to approve payroll.
+- Not built: statutory tax tables (PAYE bands) — add PAYE as a deduction item; bank file export; direct bank payment.
+
+Tests: `supabase/tests/cbt_vclass_payroll.sql` (55 checks). The scheduled job also submits expired CBT attempts.

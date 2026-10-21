@@ -397,3 +397,31 @@ export const statementPdf = (d: StatementDoc) => {
   doc.setFont("helvetica", "bold").setFontSize(11).text(`Total outstanding: ${cash(owed, cur)}`, 14, Math.min(end + 10, 285));
   doc.save(`fee-statement-${d.student.name.replace(/\W+/g, "-").toLowerCase()}.pdf`);
 };
+
+export interface PayslipDoc {
+  number: string; period: string; currency: string; basic: number; allowances: number; deductions: number; advance_deduction: number; gross: number; net: number;
+  lines: { kind: string; name: string; amount: number }[]; bank: string | null; staff: string; school: string;
+}
+
+/** One payslip, from the stored payroll figures. */
+export const payslipPdf = (d: PayslipDoc) => {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const cur = d.currency;
+  const month = new Date(`${d.period}-01T00:00:00`).toLocaleDateString("en-GB", { month: "long", year: "numeric" });
+  const y0 = pageHeader(doc, { name: d.school, logo_url: null }, `Payslip ${d.number}`, [`Employee: ${d.staff}`, `Pay period: ${month}${d.bank ? `   Paid to: ${d.bank}` : ""}`]);
+  const earn = d.lines.filter((l) => l.kind === "basic" || l.kind === "allowance");
+  const ded = d.lines.filter((l) => l.kind === "deduction" || l.kind === "advance");
+  autoTable(doc, {
+    startY: y0 + 2, head: [["Earnings", "Amount"]], body: [...earn.map((l) => [l.name, cash(l.amount, cur)]), [{ content: "Gross pay", styles: { fontStyle: "bold" } }, { content: cash(d.gross, cur), styles: { fontStyle: "bold" } }]],
+    styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [124, 58, 237] }, columnStyles: { 1: { halign: "right" } }, margin: { left: 14, right: 14 },
+  });
+  const last = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y0;
+  autoTable(doc, {
+    startY: last + 6, head: [["Deductions", "Amount"]], body: ded.length ? [...ded.map((l) => [l.name, cash(l.amount, cur)]), [{ content: "Total deductions", styles: { fontStyle: "bold" } }, { content: cash(d.deductions + d.advance_deduction, cur), styles: { fontStyle: "bold" } }]] : [[{ content: "No deductions", colSpan: 2 }]],
+    styles: { fontSize: 9, cellPadding: 2 }, headStyles: { fillColor: [71, 85, 105] }, columnStyles: { 1: { halign: "right" } }, margin: { left: 14, right: 14 },
+  });
+  const end = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? last;
+  doc.setFont("helvetica", "bold").setFontSize(13).text(`Net pay: ${cash(d.net, cur)}`, 14, end + 12);
+  doc.setFont("helvetica", "normal").setFontSize(8).setTextColor(110).text("Generated from the approved payroll. Keep this payslip for your records.", 14, end + 19);
+  doc.save(`payslip-${d.period}-${d.staff.replace(/\W+/g, "-").toLowerCase()}.pdf`);
+};

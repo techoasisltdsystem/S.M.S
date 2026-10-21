@@ -526,6 +526,7 @@ export const runCron = async (env, headers) => {
   await step('monitoring', async () => { await one(env, `SELECT public.audit_monitor_tick()`); return 'ok' })
   await step('fee_reminders', async () => (await one(env, `SELECT public.fee_reminder_tick() AS n`)).n)
   await step('event_reminders', async () => (await one(env, `SELECT public.calendar_reminder_tick() AS n`)).n)
+  await step('cbt_expired', async () => (await one(env, `SELECT public.cbt_finalize_expired(NULL) AS n`)).n)
   await step('reconcile', () => reconcileOrders(env))
   await step('outbox', () => runOutbox(env))
   return out

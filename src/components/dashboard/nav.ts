@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, DollarSign, ClipboardList,
-  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, UserCog, HeartPulse, KeyRound, BarChart3, ClipboardCheck, FileText, FolderOpen, Flag, type LucideIcon,
+  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, UserCog, HeartPulse, KeyRound, BarChart3, ClipboardCheck, FileText, FolderOpen, Flag, MonitorPlay, Video, Wallet, Briefcase, type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/contexts/AuthContext";
 
@@ -82,6 +82,8 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Classes", icon: BookOpen, path: "/classes" },
         { label: "Results & Grades", icon: ClipboardList, path: "/exams", permission: "grades.view" },
         { label: "Timetable", icon: Calendar, path: "/timetable" },
+        { label: "CBT", icon: MonitorPlay, path: "/cbt" },
+        { label: "Virtual Class", icon: Video, path: "/virtual-class" },
         { label: "Learning Resources", icon: FolderOpen, path: "/resources" },
       ],
     },
@@ -98,6 +100,7 @@ export const NAV: Record<UserRole, NavGroup[]> = {
       items: [
         { label: "Staff Management", icon: Users, path: "/user-management", permission: "users.manage" },
         { label: "Roles & Permissions", icon: ShieldCheck, path: "/role-permissions", permission: "staff.manage" },
+        { label: "Payroll Management", icon: Wallet, path: "/payroll" },
       ],
     },
     {
@@ -134,12 +137,14 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Attendance", icon: UserCheck, path: "/attendance" },
         { label: "Results & Grades", icon: ClipboardList, path: "/exams" },
         { label: "Timetable", icon: Calendar, path: "/timetable" },
+        { label: "CBT", icon: MonitorPlay, path: "/cbt" },
+        { label: "Virtual Class", icon: Video, path: "/virtual-class" },
         { label: "Learning Resources", icon: FolderOpen, path: "/resources" },
         { label: "Reports", icon: Flag, path: "/concerns" },
       ],
     },
     { title: "Communication", items: [{ label: "Messages", icon: MessageSquare, path: "/messages" }, { label: "Calendar & Notices", icon: Megaphone, path: "/calendar" }] },
-    { title: "Finance", items: [{ label: "Class fee status", icon: DollarSign, path: "/fees", permission: "fees.status" }] },
+    { title: "My Workplace", items: [{ label: "My Payslips", icon: Briefcase, path: "/payroll" }, { label: "Class fee status", icon: DollarSign, path: "/fees", permission: "fees.status" }] },
   ],
   student: [
     { items: [{ label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" }] },
@@ -152,6 +157,8 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Timetable", icon: Calendar, path: "/timetable" },
         { label: "Messages", icon: MessageSquare, path: "/messages" },
         { label: "Notices & Calendar", icon: Megaphone, path: "/calendar" },
+        { label: "CBT", icon: MonitorPlay, path: "/cbt" },
+        { label: "Virtual Class", icon: Video, path: "/virtual-class" },
         { label: "Resources", icon: FolderOpen, path: "/resources" },
         { label: "Reports", icon: Flag, path: "/concerns" },
         { label: "Profile", icon: UserCog, path: "/profile" },
@@ -169,6 +176,8 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Timetable", icon: Calendar, path: "/timetable" },
         { label: "Messages", icon: MessageSquare, path: "/messages" },
         { label: "Notices & Calendar", icon: Megaphone, path: "/calendar" },
+        { label: "Tests (CBT)", icon: MonitorPlay, path: "/cbt" },
+        { label: "Virtual Class", icon: Video, path: "/virtual-class" },
         { label: "Learning Resources", icon: FolderOpen, path: "/resources" },
         { label: "Reports", icon: Flag, path: "/concerns" },
       ],
