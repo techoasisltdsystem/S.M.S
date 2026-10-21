@@ -1,5 +1,5 @@
 // HTTP adapter shared by the Vercel functions and the Vite dev server.
-import { HttpError, config, demoPay, initialize, makeEnv, publicClaim, publicPricing, publicSignup, publicStatus, rateLimit, recoverRequest, recoverSend, verify, webhook, addPlatformAdmin } from './core.mjs'
+import { HttpError, config, demoPay, initialize, makeEnv, publicClaim, publicPricing, publicSignup, publicStatus, rateLimit, recoverRequest, recoverSend, verify, webhook, platformInvite, platformInviteInfo, platformInviteAccept, feeInitialize, feeVerify, feeReconcile, feeRefund, runCron } from './core.mjs'
 
 const readRaw = async (req) => {
   if (req.rawBody) return Buffer.from(req.rawBody)
@@ -26,7 +26,14 @@ const routes = {
   'demo-pay': { method: 'POST', json: true, limit: 30, run: (env, req, body) => demoPay(env, body, req.headers) },
   'recover': { method: 'POST', json: true, limit: 10, run: (env, req, body) => recoverRequest(env, req.headers, body) },
   'recover-send': { method: 'POST', json: true, limit: 10, run: (env, req, body) => recoverSend(env, req.headers, body) },
-  'platform-admin': { method: 'POST', json: true, limit: 10, run: (env, req, body) => addPlatformAdmin(env, req.headers, body) },
+  'platform-invite': { method: 'POST', json: true, limit: 20, run: (env, req, body) => platformInvite(env, req.headers, body) },
+  'platform-invite-info': { method: 'POST', json: true, limit: 30, run: (env, _req, body) => platformInviteInfo(env, body) },
+  'platform-invite-accept': { method: 'POST', json: true, limit: 10, run: (env, req, body) => platformInviteAccept(env, req.headers, body) },
+  'fee-initialize': { method: 'POST', json: true, limit: 20, run: (env, req, body) => feeInitialize(env, req.headers, body) },
+  'fee-verify': { method: 'POST', json: true, limit: 60, run: (env, req, body) => feeVerify(env, req.headers, body) },
+  'fee-reconcile': { method: 'POST', json: true, limit: 20, run: (env, req, body) => feeReconcile(env, req.headers, body) },
+  'fee-refund': { method: 'POST', json: true, limit: 20, run: (env, req, body) => feeRefund(env, req.headers, body) },
+  cron: { method: 'GET', run: (env, req) => runCron(env, req.headers) },
   webhook: { method: 'POST', raw: true, run: (env, req, _body, raw) => webhook(env, req.headers, raw) },
 }
 

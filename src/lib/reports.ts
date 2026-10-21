@@ -367,3 +367,33 @@ export const exportPerformance = async (d: PerformanceData, format: Format) => {
   if (format === "csv") downloadCsv(`${base}.csv`, headers, rows);
   else await downloadXlsx(`${base}.xlsx`, "Performance", headers, rows);
 };
+
+export interface StatementDoc {
+  school: { name: string; currency: string }; student: { name: string; admission_number: string | null };
+  invoices: { number: string; title: string; term: string | null; year: string | null; issued_on: string; due_on: string; total: number; paid: number; status: string;
+    payments: { receipt: string; amount: number; method: string; paid_on: string; status: string }[] }[];
+}
+
+/** Every invoice and payment of one student, with the outstanding balance. Only counted payments are listed as paid. */
+export const statementPdf = (d: StatementDoc) => {
+  const doc = new jsPDF({ unit: "mm", format: "a4" });
+  const cur = d.school.currency;
+  const y0 = pageHeader(doc, { ...d.school, logo_url: null }, "Fee statement", [`Student: ${d.student.name}${d.student.admission_number ? `   Admission no.: ${d.student.admission_number}` : ""}`, `Printed: ${dayText(new Date().toISOString())}`]);
+  const live = d.invoices.filter((i) => i.status !== "cancelled");
+  autoTable(doc, {
+    startY: y0 + 2, head: [["Invoice", "Period", "Due", "Total", "Paid", "Balance"]],
+    body: live.length ? live.map((i) => [`${i.number} ${i.title}`, [i.year, i.term].filter(Boolean).join(" ") || "-", dayText(i.due_on), cash(i.total, cur), cash(i.paid, cur), cash(i.total - i.paid, cur)]) : [[{ content: "No invoices", colSpan: 6 }]],
+    styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: { fillColor: [30, 64, 175] }, columnStyles: { 3: { halign: "right" }, 4: { halign: "right" }, 5: { halign: "right" } }, margin: { left: 14, right: 14, bottom: 16 },
+  });
+  const pays = live.flatMap((i) => i.payments.filter((p) => p.status === "recorded").map((p) => [p.receipt, dayText(p.paid_on), i.number, methodText(p.method), cash(p.amount, cur)]));
+  const last = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? y0;
+  doc.setFont("helvetica", "bold").setFontSize(10).text("Payments received", 14, last + 9);
+  autoTable(doc, {
+    startY: last + 11, head: [["Receipt", "Date", "Invoice", "Method", "Amount"]], body: pays.length ? pays : [[{ content: "No payments yet", colSpan: 5 }]],
+    styles: { fontSize: 8.5, cellPadding: 2 }, headStyles: { fillColor: [71, 85, 105] }, columnStyles: { 4: { halign: "right" } }, margin: { left: 14, right: 14, bottom: 16 },
+  });
+  const end = (doc as unknown as { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? last;
+  const owed = live.reduce((n, i) => n + (i.total - i.paid), 0);
+  doc.setFont("helvetica", "bold").setFontSize(11).text(`Total outstanding: ${cash(owed, cur)}`, 14, Math.min(end + 10, 285));
+  doc.save(`fee-statement-${d.student.name.replace(/\W+/g, "-").toLowerCase()}.pdf`);
+};

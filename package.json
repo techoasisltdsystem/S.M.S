@@ -22,7 +22,8 @@
     "db:create-school": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/create-school.ps1",
     "db:create-platform-admin": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/local-db/create-platform-admin.ps1",
     "dev:local": "npm run db:start && vite",
-    "billing:test": "node --test server/billing/selftest.mjs"
+    "billing:test": "node --test server/billing/selftest.mjs",
+    "cron:run": "node scripts/run-cron.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

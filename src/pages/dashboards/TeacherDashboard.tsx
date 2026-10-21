@@ -140,11 +140,11 @@ const TeacherDashboard = () => {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 min-[1400px]:grid-cols-4">
           {loading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
             <>
-              <KitStat tinted icon={CalendarClock} label="Today's Classes" value={d.slots.length}
+              <KitStat tinted delay={0} icon={CalendarClock} label="Today's Classes" value={d.slots.length}
                 sub={d.nextSlot ? `Next: ${d.subjectName.get(d.nextSlot.subject_id) ?? "Lesson"}, ${d.className.get(d.nextSlot.class_id) ?? ""} ${hhmm(d.nextSlot.starts_at)}` : d.slots.length ? "All done for today" : "Nothing on the timetable today"} to="/timetable" />
-              <KitStat tinted icon={Users} tone="success" label="Student Count" value={d.studentIds.size} sub={`Across ${d.myClasses.length} class${d.myClasses.length === 1 ? "" : "es"}`} to="/students" />
-              <KitStat tinted icon={ClipboardList} tone="info" label="Results to Submit" value={d.drafts.length} sub="Draft assessments" to="/exams" />
-              <KitStat tinted icon={UserCheck} tone="warning" label="Registers Due" value={d.unregistered.length} sub="Classes not marked today" to="/attendance" />
+              <KitStat tinted delay={0.06} icon={Users} tone="success" label="Student Count" value={d.studentIds.size} sub={`Across ${d.myClasses.length} class${d.myClasses.length === 1 ? "" : "es"}`} to="/students" />
+              <KitStat tinted delay={0.12} icon={ClipboardList} tone="info" label="Results to Submit" value={d.drafts.length} sub="Draft assessments" to="/exams" />
+              <KitStat tinted delay={0.18} icon={UserCheck} tone="warning" label="Registers Due" value={d.unregistered.length} sub="Classes not marked today" to="/attendance" />
             </>
           )}
         </div>

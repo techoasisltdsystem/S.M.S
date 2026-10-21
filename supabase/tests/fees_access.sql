@@ -205,7 +205,7 @@ BEGIN
   PERFORM pg_temp.ok(pg_temp.count(format($q$SELECT 1 FROM public.list_invoices(%L)$q$, sa)) = 0, 'an unverified guardian sees nothing');
   PERFORM pg_temp.ok(pg_temp.fails(format($q$SELECT public.get_invoice(%L)$q$, ama_inv)), 'and cannot open it');
   PERFORM pg_temp.act_as('student-ama@test.invalid');
-  PERFORM pg_temp.ok(pg_temp.fails(format($q$SELECT public.get_invoice(%L)$q$, ama_inv)), 'a student cannot open their own invoice');
+  PERFORM pg_temp.ok(NOT pg_temp.fails(format($q$SELECT public.get_invoice(%L)$q$, ama_inv)), 'a student can open their own invoice (fees are visible to the student they belong to)');
   PERFORM pg_temp.act_as('platform@test.invalid');
   PERFORM pg_temp.ok(pg_temp.fails(format($q$SELECT public.get_invoice(%L)$q$, ama_inv)), 'nor can the platform');
 END $$;

@@ -14,5 +14,11 @@
       "destination": "/favicon.svg",
       "permanent": false
     }
+  ],
+  "crons": [
+    {
+      "path": "/api/billing/cron",
+      "schedule": "0 6 * * *"
+    }
   ]
 }

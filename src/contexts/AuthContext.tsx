@@ -179,7 +179,10 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const activatePlatform = useCallback(async (authId: string, email: string) => {
     setMemberships([]);
-    setUser(platformUser(authId, email));
+    // What this administrator may do comes from the database, per role; the sidebar and routes follow it.
+    const me = await db.rpc("platform_admin_me" as never).then((r) => (r.data as { email: string; full_name: string | null; role: string; permissions: string[] }[] | null)?.[0] ?? null);
+    const base = platformUser(authId, me?.email ?? email);
+    setUser({ ...base, name: me?.full_name || base.name, permissions: ["platform.manage", ...(me?.permissions ?? [])] });
     remember(null);
     await refreshMfa();
   }, [refreshMfa]);
@@ -263,6 +266,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       throw new AuthError("We could not sign you in. Check your details and try again.");
     }
     await activatePlatform(authId, email.trim().toLowerCase());
+    void db.rpc("platform_log_signin" as never);
   };
 
   const logout = async () => {

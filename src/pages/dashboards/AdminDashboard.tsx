@@ -1,7 +1,8 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, BookOpen, Calendar, DollarSign, GraduationCap, History, Megaphone, UserCheck, Users, UserPlus, ClipboardList } from "lucide-react";
+import { AlertTriangle, BookOpen, Calendar, DollarSign, GraduationCap, History, Megaphone, School, Sparkles, TrendingUp, UserCheck, Users, UserPlus, ClipboardList, Wallet } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
+import HeroBanner from "@/components/kit/HeroBanner";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import Donut from "@/components/kit/Donut";
 import BarChart from "@/components/kit/BarChart";
@@ -51,32 +52,54 @@ const AdminDashboard = () => {
 
   return (
     <>
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="font-heading text-2xl font-bold text-foreground">School Admin Dashboard</h1>
-          <p className="text-sm text-muted-foreground">
-            {o?.current_year ? `${o.current_year}${o.current_term ? ` · ${o.current_term}` : ""}` : "Set up your academic year to start"}
-          </p>
-        </div>
-        <nav className="flex flex-wrap gap-2" aria-label="Shortcuts">
-          {[
-            { to: "/students", label: "Students" },
-            { to: "/user-management", label: "Staff & accounts", show: can("users.manage") },
-            { to: "/exams", label: "Results", show: can("grades.view") },
-            { to: "/calendar", label: "Communications" },
-          ].filter((l) => l.show !== false).map((l) => (
-            <Button key={l.to} asChild size="sm" variant="outline"><Link to={l.to}>{l.label}</Link></Button>
-          ))}
-        </nav>
-      </div>
+      <HeroBanner
+        className="mb-5"
+        eyebrow={user!.schoolName}
+        title="School Admin Dashboard"
+        text={o?.current_year ? `${o.current_year}${o.current_term ? ` · ${o.current_term}` : ""}` : "Set up your academic year to start"}
+        icons={[School, TrendingUp, Sparkles]}
+      >
+        {[
+          { to: "/students", label: "Students" },
+          { to: "/user-management", label: "Staff & accounts", show: can("users.manage") },
+          { to: "/exams", label: "Results", show: can("grades.view") },
+          { to: "/fees", label: "Fees", show: can("fees.view") },
+          { to: "/calendar", label: "Communications" },
+        ].filter((l) => l.show !== false).map((l) => (
+          <Button key={l.to} asChild size="sm" variant="outline" className="bg-white/60 backdrop-blur transition-transform hover:-translate-y-0.5"><Link to={l.to}>{l.label}</Link></Button>
+        ))}
+      </HeroBanner>
 
       <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {overview.isLoading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[108px]" />) : (
           <>
-            <KitStat icon={GraduationCap} label="Students" value={students} sub={`${o!.invited} invited, not yet signed in`} to="/students" />
-            <KitStat icon={BookOpen} tone="success" label="Classes" value={o!.classes.length} sub="This academic year" to="/classes" />
-            <KitStat icon={Users} tone="warning" label="Parents" value={o!.people.parent ?? 0} sub="Guardian accounts" to="/students" />
-            <KitStat icon={Users} tone="info" label="Staff" value={staff} sub="Administrators and teachers" to={can("users.manage") ? "/user-management" : undefined} />
+            <KitStat delay={0} icon={GraduationCap} label="Students" value={students} sub={`${o!.invited} invited, not yet signed in`} to="/students" />
+            <KitStat delay={0.06} icon={BookOpen} tone="success" label="Classes" value={o!.classes.length} sub="This academic year" to="/classes" />
+            <KitStat delay={0.12} icon={Users} tone="warning" label="Parents" value={o!.people.parent ?? 0} sub="Guardian accounts" to="/students" />
+            <KitStat delay={0.18} icon={Users} tone="info" label="Staff" value={staff} sub="Administrators and teachers" to={can("users.manage") ? "/user-management" : undefined} />
+          </>
+        )}
+      </div>
+
+      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {overview.isLoading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
+          <>
+            <KitStat delay={0.24} icon={UserCheck} tone="success" label="Attendance Today" to={can("attendance.view") ? "/attendance" : undefined}
+              value={attTotal ? `${Math.round(((att!.present + att!.late) / attTotal) * 100)}%` : null} sub={attTotal ? `${att!.classes_marked} register${att!.classes_marked === 1 ? "" : "s"} taken` : "No registers taken today"} meter={attTotal ? ((att!.present + att!.late) / attTotal) * 100 : undefined} />
+            <KitStat delay={0.3} icon={ClipboardList} tone="info" label="Results Waiting" to={can("grades.view") ? "/exams" : undefined} value={o?.results_waiting ?? 0} sub="Submitted, waiting to be published" />
+            {can("fees.view") ? (
+              <>
+                <KitStat delay={0.36} icon={Wallet} tone="success" label="Fees Collected" to="/fees" value={fees.data ? money(fees.data.collected) : null}
+                  sub={fees.data ? `of ${money(fees.data.billed)} billed` : fees.isLoading ? "Loading…" : "Fees are not available"} meter={fees.data && fees.data.billed > 0 ? (fees.data.collected / fees.data.billed) * 100 : undefined} />
+                <KitStat delay={0.42} icon={DollarSign} tone={fees.data && fees.data.overdue_count > 0 ? "destructive" : "warning"} label="Fees Outstanding" to="/fees" value={fees.data ? money(fees.data.outstanding) : null}
+                  sub={fees.data ? `${fees.data.overdue_count} overdue invoice${fees.data.overdue_count === 1 ? "" : "s"}` : fees.isLoading ? "Loading…" : "Fees are not available"} />
+              </>
+            ) : (
+              <>
+                <KitStat delay={0.36} icon={UserPlus} tone="warning" label="New This Month" to="/students" value={newThisMonth} sub="Students placed in a class" />
+                <KitStat delay={0.42} icon={Calendar} tone="primary" label="Upcoming Events" to="/calendar" value={upcoming(events.data ?? []).length} sub="On the school calendar" />
+              </>
+            )}
           </>
         )}
       </div>

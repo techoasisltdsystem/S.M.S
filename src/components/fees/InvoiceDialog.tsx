@@ -6,6 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PayOnline from "@/components/fees/PayOnline";
+import { useQueryClient } from "@tanstack/react-query";
+import { authHeader } from "@/lib/db";
+import { rpc } from "@/lib/rpc";
+import { useFeeSettings } from "@/hooks/useFeeAdmin";
+import { useAuth } from "@/contexts/AuthContext";
 import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState";
 import { useToast } from "@/hooks/use-toast";
 import { METHODS, methodLabel, money, useFeeActions, useInvoice, type InvoiceStatus } from "@/hooks/useFees";
@@ -25,12 +31,33 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** One invoice with its payments. Staff actions appear only if the database says the caller may do them. */
 const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string | null; onClose: () => void }) => {
   const { toast } = useToast();
+  const { user, can } = useAuth();
+  const qc = useQueryClient();
+  const settings = useFeeSettings(user?.schoolId);
   const q = useInvoice(id);
   const { recordPayment, voidPayment, cancelInvoice } = useFeeActions(schoolId);
   const [pay, setPay] = useState({ amount: "", method: "cash", reference: "", paidOn: today(), note: "" });
   const [voiding, setVoiding] = useState<{ id: string; receipt: string } | null>(null);
   const [reason, setReason] = useState("");
   const [cancelling, setCancelling] = useState(false);
+  const [refunding, setRefunding] = useState<{ id: string; receipt: string } | null>(null);
+  const [adj, setAdj] = useState({ kind: "discount", amount: "", reason: "" });
+  const [working, setWorking] = useState(false);
+  const refresh = () => { ["invoice", "invoices", "fee-summary", "fee-orders", "fee-refunds", "fee-report"].forEach((k) => void qc.invalidateQueries({ queryKey: [k] })); };
+  const act = async (fn: () => Promise<unknown>, ok: string, done?: () => void) => {
+    setWorking(true);
+    try { await fn(); toast({ title: ok }); refresh(); done?.(); }
+    catch (e) { toast({ title: "Not done", description: errMsg(e), variant: "destructive" }); }
+    finally { setWorking(false); }
+  };
+  const refund = async () => {
+    const auth = await authHeader();
+    const res = await fetch("/api/billing/fee-refund", { method: "POST", headers: { "content-type": "application/json", ...(auth ? { authorization: auth } : {}) }, body: JSON.stringify({ payment: refunding!.id, reason }) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(j.error ?? "The refund could not be started.");
+    if (j.status === "failed") throw new Error(j.error ?? "Paystack could not refund it. It is recorded and can be retried from Online payments.");
+    return j;
+  };
   const d = q.data;
   const cur = d?.school.currency ?? "GHS";
 
@@ -80,14 +107,21 @@ const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string
                     <li key={p.id} className={cn("flex flex-wrap items-center gap-2 px-3 py-2 text-sm", p.status === "voided" && "opacity-60")}>
                       <span className="min-w-0 flex-1">
                         <span className={cn("font-medium", p.status === "voided" && "line-through")}>{p.receipt}</span> · {money(p.amount, cur)} · {methodLabel(p.method)}{p.reference ? ` (${p.reference})` : ""}
-                        <span className="block text-xs text-muted-foreground">{day(p.paid_on)}{p.recorded_by ? ` · recorded by ${p.recorded_by}` : ""}{p.status === "voided" ? ` · voided: ${p.void_reason}` : ""}</span>
+                        <span className="block text-xs text-muted-foreground">{day(p.paid_on)}{p.recorded_by ? ` · recorded by ${p.recorded_by}` : ""}{p.status === "voided" ? ` · voided: ${p.void_reason}` : ""}{p.status === "pending" ? " · waiting for approval, not counted as paid" : ""}</span>
                       </span>
                       {p.status === "recorded" && (
                         <>
                           <Button size="sm" variant="outline" onClick={() => { try { receiptPdf(d, p.receipt); } catch (e) { toast({ title: "Could not create the receipt", description: errMsg(e), variant: "destructive" }); } }}>
                             <Receipt className="mr-1 h-3.5 w-3.5" /> Receipt
                           </Button>
-                          {d.can_void && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setReason(""); setVoiding({ id: p.id, receipt: p.receipt }); }}>Void</Button>}
+                          {d.can_void && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setReason(""); setRefunding(null); setVoiding({ id: p.id, receipt: p.receipt }); }}>Void</Button>}
+                          {can("payments.refund") && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { setReason(""); setVoiding(null); setRefunding({ id: p.id, receipt: p.receipt }); }}>Refund</Button>}
+                        </>
+                      )}
+                      {p.status === "pending" && can("payments.approve") && (
+                        <>
+                          <Button size="sm" disabled={working} onClick={() => void act(() => rpc("review_payment", { _payment: p.id, _approve: true, _reason: null }), "Payment approved")}>Approve</Button>
+                          <Button size="sm" variant="ghost" className="text-destructive" disabled={working} onClick={() => { const why = window.prompt("Why is this payment being rejected? (at least 5 characters)"); if (why) void act(() => rpc("review_payment", { _payment: p.id, _approve: false, _reason: why }), "Payment rejected"); }}>Reject</Button>
                         </>
                       )}
                     </li>
@@ -95,6 +129,8 @@ const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string
                 </ul>
               )}
             </div>
+
+            {(user?.role === "parent" || (user?.role === "student" && settings.data?.student_pay)) && d.invoice.status !== "cancelled" && d.invoice.balance > 0 && <PayOnline invoiceId={d.invoice.id} balance={d.invoice.balance} currency={cur} />}
 
             {d.can_record && d.invoice.status !== "cancelled" && d.invoice.balance > 0 && (
               <form className="space-y-3 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); void record(); }}>
@@ -114,6 +150,36 @@ const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string
                 {pay.amount && !amountOk && <p role="alert" className="text-xs text-destructive">Enter an amount up to the balance of {money(d.invoice.balance, cur)}.</p>}
                 <Button type="submit" disabled={!amountOk || recordPayment.isPending}>{recordPayment.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Record payment</Button>
               </form>
+            )}
+
+            {user?.role === "student" && !settings.data?.student_pay && d.invoice.balance > 0 && d.invoice.status !== "cancelled" && (
+              <p className="rounded-lg bg-muted/50 px-3 py-2 text-sm text-muted-foreground">Ask your parent or guardian to pay this invoice from their account, or pay at the school office. The school records every payment here.</p>
+            )}
+
+            {can("fees.adjust") && d.invoice.status !== "cancelled" && (
+              <form className="space-y-3 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); void act(() => rpc("apply_fee_adjustment", { _invoice: id, _kind: adj.kind, _amount: Number(adj.amount), _reason: adj.reason }), "Adjustment applied", () => setAdj({ kind: "discount", amount: "", reason: "" })); }}>
+                <p className="text-sm font-semibold">Adjust this invoice</p>
+                <p className="text-xs text-muted-foreground">Discounts, scholarships and waivers lower the total; a charge raises it. Each is kept as its own record with your name and reason, and payments already made are never changed.</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5"><Label htmlFor="adj-kind">Type</Label>
+                    <select id="adj-kind" value={adj.kind} onChange={(e) => setAdj({ ...adj, kind: e.target.value })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+                      <option value="discount">Discount</option><option value="scholarship">Scholarship</option><option value="waiver">Waiver</option><option value="charge">Extra charge</option></select></div>
+                  <div className="space-y-1.5"><Label htmlFor="adj-amt">Amount</Label><Input id="adj-amt" inputMode="decimal" value={adj.amount} onChange={(e) => setAdj({ ...adj, amount: e.target.value })} /></div>
+                </div>
+                <div className="space-y-1.5"><Label htmlFor="adj-why">Reason</Label><Input id="adj-why" maxLength={140} value={adj.reason} onChange={(e) => setAdj({ ...adj, reason: e.target.value })} /></div>
+                <Button type="submit" variant="outline" disabled={working || !(Number(adj.amount) > 0) || adj.reason.trim().length < 5}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Apply adjustment</Button>
+              </form>
+            )}
+
+            {refunding && (
+              <div className="space-y-2 rounded-lg border border-destructive/30 bg-destructive/5 p-3">
+                <Label htmlFor="refund-reason">Refund {refunding.receipt}? The payment is reversed on the invoice at once. Online payments are returned to the payer through Paystack. Why? (at least 5 characters)</Label>
+                <Textarea id="refund-reason" rows={2} value={reason} onChange={(e) => setReason(e.target.value)} maxLength={300} />
+                <div className="flex gap-2">
+                  <Button size="sm" variant="destructive" disabled={working || reason.trim().length < 5} onClick={() => void act(refund, "Refund recorded", () => { setRefunding(null); setReason(""); })}>{working && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Refund payment</Button>
+                  <Button size="sm" variant="outline" onClick={() => setRefunding(null)}>Back</Button>
+                </div>
+              </div>
             )}
 
             <div className="flex flex-wrap gap-2 border-t border-border pt-3">

@@ -183,6 +183,10 @@ export const webhook = async (env, headers, rawBody) => {
   if (event?.event === 'charge.success' && reference) {
     // Settling is idempotent, so a repeated delivery is harmless. The event is recorded only after it
     // was handled: if Paystack was unreachable now, its retry must be processed, not skipped.
+    if (isFeeReference(reference)) {
+      const fee = await feeSettleFromGateway(env, reference, 'webhook')
+      return { received: true, status: fee.status }
+    }
     const result = await settleFromGateway(env, reference, 'webhook', null, true, headers)
     const fresh = await one(env, `SELECT public.billing_record_event($1, 'webhook', $2, $3, true, $4, '{}') AS fresh`, [reference, event.event, externalId, result.status ?? 'handled'])
     return fresh.fresh ? { received: true } : { received: true, duplicate: true }
@@ -305,64 +309,224 @@ export const publicStatus = (env, b) => callPublic(env, `SELECT public.billing_o
 export const publicClaim = async (env, b) => ({ token: await callPublic(env, `SELECT public.billing_claim_invite($1, $2) AS r`, [b.reference, b.claim]) })
 
 // ---------------------------------------------------------------------------------------------
-// Platform team: a signed-in Super Admin adds another Super Admin. The caller proves who they are
-// with their own sign-in token; the database (is_platform_admin) decides, never the browser.
+// Platform team. A Super Admin invites another administrator by email. The invitee follows a one-time
+// link and chooses their own password; no password is ever generated, shown or emailed. The caller
+// proves who they are with their own sign-in token and the database checks their permission.
 // ---------------------------------------------------------------------------------------------
 const NEON_DATA_API = 'https://ep-ancient-darkness-bagaak83.apirest.c-8.eu-central-1.aws.neon.tech/neondb/rest/v1'
 const NEON_AUTH = 'https://ep-ancient-darkness-bagaak83.neonauth.c-8.eu-central-1.aws.neon.tech/neondb/auth'
 const isLocalDb = (env) => env('VITE_DB_PROVIDER') === 'local'
+const hashToken = (t) => createHash('sha256').update(t).digest('hex')
 
-const callerRpc = async (env, authorization, fn) => {
+/** Calls a database function as the signed-in caller, so the database applies that person's permissions. */
+const asCaller = async (env, authorization, fn, args = {}) => {
+  if (!authorization) throw new HttpError(401, 'Sign in first.')
   const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
-  const res = await fetch(`${base}/rpc/${fn}`, {
-    method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: '{}',
-  })
-  if (!res.ok) return null
-  return res.json()
+  const res = await fetch(`${base}/rpc/${fn}`, { method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify(args) })
+  const body = await res.json().catch(() => null)
+  if (!res.ok) throw new HttpError(res.status === 401 || res.status === 403 || body?.code === '42501' ? 403 : 400, body?.message ?? 'The request was refused.')
+  return body
 }
 
-/** A strong one-time password: 16 characters, no look-alikes. */
-const makeTempPassword = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  const bytes = randomBytes(16)
-  return Array.from(bytes, (b) => chars[b % chars.length]).join('')
+const inviteEmail = (env, headers, to, name, token) => {
+  const link = `${appUrl(env, headers)}/platform-invite?token=${token}`
+  return { link, send: () => sendMail(env, {
+    to, link, subject: 'You have been invited to the Tech Oasis platform console',
+    text: `Hello ${name},
+
+You have been invited to join the Tech Oasis platform console.
+
+Choose your own password here (the link works once and expires in 7 days):
+${link}
+
+If you did not expect this, ignore this email.`,
+  }) }
 }
 
-export const addPlatformAdmin = async (env, headers, { email, name }) => {
-  const authorization = headers.authorization
-  if (!authorization || (await callerRpc(env, authorization, 'is_platform_admin')) !== true) {
-    throw new HttpError(403, 'Only a signed-in Super Admin can add another Super Admin.')
+/** Create or resend an invitation, or revoke one. Returns the link only when email could not be sent. */
+export const platformInvite = async (env, headers, b) => {
+  const auth = headers.authorization
+  if (b.action === 'revoke') { await asCaller(env, auth, 'platform_invite_revoke', { _id: b.id }); return { ok: true } }
+  const token = randomBytes(32).toString('base64url')
+  let email, name
+  if (b.action === 'resend') {
+    const r = await asCaller(env, auth, 'platform_invite_rotate', { _id: b.id, _token_hash: hashToken(token) })
+    ;[{ email, full_name: name }] = r
+  } else {
+    email = String(b.email ?? '').trim().toLowerCase(); name = String(b.name ?? '').trim()
+    await asCaller(env, auth, 'platform_invite_create', { _email: email, _name: name, _role: b.role, _perms: Array.isArray(b.permissions) ? b.permissions : [], _token_hash: hashToken(token) })
   }
-  const addr = typeof email === 'string' ? email.trim().toLowerCase() : ''
-  const full = typeof name === 'string' ? name.trim().slice(0, 100) : ''
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr) || addr.length > 200) throw new HttpError(400, 'Enter a valid email address.')
-  if (full.length < 2) throw new HttpError(400, 'Enter the new Super Admin\'s full name.')
-  const users = isLocalDb(env) ? "auth.users" : "neon_auth.\"user\""
-  const existing = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
-  const password = makeTempPassword()
+  const mail = inviteEmail(env, headers, email, name, token)
+  try { await mail.send(); return { emailed: true, email } }
+  catch (e) { console.error('[platform-invite]', e.message); return { emailed: false, email, link: mail.link } }
+}
+
+/** What an invitation link is for (shown before the person sets a password). */
+export const platformInviteInfo = async (env, { token }) => {
+  if (typeof token !== 'string' || token.length < 20) throw new HttpError(400, 'This invitation link is not valid.')
+  const row = await one(env, `SELECT email, full_name, role FROM public.platform_invite_peek($1)`, [hashToken(token)])
+  if (!row) throw new HttpError(404, 'This invitation has expired or was already used. Ask for a new one.')
+  return { email: row.email, name: row.full_name, role: row.role }
+}
+
+/** The invitee sets a password; the server creates the login and attaches the invited role. */
+export const platformInviteAccept = async (env, headers, { token, password }) => {
+  if (typeof token !== 'string' || token.length < 20) throw new HttpError(400, 'This invitation link is not valid.')
+  if (typeof password !== 'string' || password.length < 12 || password.length > 200) throw new HttpError(400, 'Use a password of at least 12 characters.')
+  const hash = hashToken(token)
+  const inv = await one(env, `SELECT email, full_name FROM public.platform_invite_peek($1)`, [hash])
+  if (!inv) throw new HttpError(404, 'This invitation has expired or was already used. Ask for a new one.')
+  const users = isLocalDb(env) ? 'auth.users' : 'neon_auth."user"'
+  if (await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [inv.email])) throw new HttpError(409, 'That email already has a login.')
   let userId
   if (isLocalDb(env)) {
-    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
-    userId = (await one(env, `SELECT auth_local.create_platform_admin($1, $2) AS id`, [addr, password])).id
-    await one(env, `UPDATE auth.users SET must_change_password = TRUE WHERE id = $1 RETURNING id`, [userId])
+    userId = (await one(env, `INSERT INTO auth.users (email, encrypted_password, email_confirmed_at) VALUES ($1, crypt($2, gen_salt('bf', 10)), now()) RETURNING id`, [inv.email, password])).id
   } else {
-    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
     const res = await fetch(`${env('NEON_AUTH_URL') || NEON_AUTH}/sign-up/email`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: appUrl(env, headers) },
-      body: JSON.stringify({ email: addr, password, name: full }),
+      method: 'POST', headers: { 'content-type': 'application/json', origin: appUrl(env, headers) },
+      body: JSON.stringify({ email: inv.email, password, name: inv.full_name }),
     })
-    if (!res.ok) throw new HttpError(502, 'The sign-in service could not create that login. Try again shortly.')
-    const row = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
-    if (!row) throw new HttpError(502, 'The login was created but could not be found. Try again.')
-    userId = row.id
+    if (!res.ok) throw new HttpError(502, 'The sign-in service could not create your login. Check the password and try again.')
+    userId = (await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [inv.email])).id
   }
-  // Recorded through the caller's own token so the database checks they are a Super Admin and notes who added this one.
-  const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
-  const reg = await fetch(`${base}/rpc/platform_admin_register`, {
-    method: 'POST', headers: { authorization, 'content-type': 'application/json' },
-    body: JSON.stringify({ _user: userId, _name: full }),
+  try { await one(env, `SELECT public.platform_invite_accept($1, $2)`, [hash, userId]) }
+  catch (e) { console.error('[platform-invite]', e.message); throw new HttpError(409, 'Your login was created but the invitation could not be completed. Ask for a new invitation.') }
+  return { ok: true, email: inv.email }
+}
+
+// ---------------------------------------------------------------------------------------------
+// School fee payments. These are the school's money, kept apart from platform subscription orders:
+// separate tables, separate references (FEE-...), and they settle into the school's own fee ledger.
+// The amount, invoice and payer are fixed in the database when the order is created; the browser
+// only ever names an invoice and an amount, and the database decides if that is allowed.
+// ---------------------------------------------------------------------------------------------
+const isFeeReference = (r) => typeof r === 'string' && /^FEE-[A-Z0-9]{8,32}$/.test(r)
+
+export const feeInitialize = async (env, headers, { invoice, amount }) => {
+  if (!env('PAYSTACK_SECRET_KEY')) throw new HttpError(503, 'Online payment is not switched on for this site yet. Please pay at the school office.')
+  if (typeof invoice !== 'string' || !/^[0-9a-f-]{36}$/.test(invoice)) throw new HttpError(400, 'Choose an invoice to pay.')
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n <= 0 || n > 10000000) throw new HttpError(400, 'Enter a valid amount.')
+  const started = await asCaller(env, headers.authorization, 'fee_pay_start', { _invoice: invoice, _amount: n })
+  const order = (await one(env, `SELECT public.fee_order_for_server($1) AS o`, [started.reference])).o
+  const base = appUrl(env, headers)
+  let body
+  try {
+    body = await paystack(env, '/transaction/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: order.email, amount: Number(order.amount_minor), currency: order.currency, reference: order.reference,
+      callback_url: `${base}/fees/return?reference=${encodeURIComponent(order.reference)}`,
+      channels: (env('PAYSTACK_CHANNELS') || 'card,mobile_money,bank_transfer').split(',').map((c) => c.trim()).filter(Boolean),
+      metadata: { kind: 'school_fee', order: order.reference, custom_fields: [] },
+    }),
   })
-  if (!reg.ok) throw new HttpError(409, 'The login was created but could not be made a Super Admin.')
-  return { email: addr, password, name: full }
+  } catch (e) {
+    // The attempt never reached Paystack: close it so it does not sit around as a pending payment.
+    await one(env, `SELECT public.fee_settle($1, $2::jsonb)`, [order.reference, JSON.stringify({ status: 'failed', gateway_response: String(e.message).slice(0, 200) })])
+    throw e
+  }
+  await one(env, `SELECT public.fee_mark_initialized($1, $2)`, [order.reference, body.data.access_code])
+  await one(env, `SELECT public.fee_record_event($1, 'initialize', 'initialized', '{}')`, [order.reference])
+  return { reference: order.reference, url: body.data.authorization_url }
+}
+
+/** Ask Paystack what happened, then let the database settle. Used by the return page, the webhook and reconciliation. */
+export const feeSettleFromGateway = async (env, reference, source) => {
+  if (!isFeeReference(reference)) return { status: 'unknown' }
+  const order = (await one(env, `SELECT public.fee_order_for_server($1) AS o`, [reference])).o
+  if (!order) { await one(env, `SELECT public.fee_record_event($1, $2, 'unknown_reference', '{}')`, [reference, source]); return { status: 'unknown' } }
+  if (order.status === 'paid') return { status: 'paid' }
+  const verify = await paystack(env, `/transaction/verify/${encodeURIComponent(reference)}`)
+  const summary = summarise(verify.data)
+  const result = (await one(env, `SELECT public.fee_settle($1, $2::jsonb) AS r`, [reference, JSON.stringify(summary)])).r
+  await one(env, `SELECT public.fee_record_event($1, $2, $3, $4::jsonb)`,
+    [reference, source, result.status, JSON.stringify({ gateway_status: summary.status, amount_minor: summary.amount_minor, currency: summary.currency, channel: summary.channel })])
+  return result
+}
+
+/** The return page asks; the answer comes from Paystack, and only the payer or finance staff may ask. */
+export const feeVerify = async (env, headers, { reference }) => {
+  if (!isFeeReference(reference)) throw new HttpError(400, 'That payment reference is not valid.')
+  await asCaller(env, headers.authorization, 'fee_pay_status', { _reference: reference })
+  if (!env('PAYSTACK_SECRET_KEY')) throw new HttpError(503, 'Online payment is not configured.')
+  await feeSettleFromGateway(env, reference, 'verify')
+  return asCaller(env, headers.authorization, 'fee_pay_status', { _reference: reference })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Refunds, reconciliation, the email outbox and the scheduled job
+// ---------------------------------------------------------------------------------------------
+const emailReady = (env) => !!((env('RESEND_API_KEY') && env('MAIL_FROM')) || (env('MAIL_DEV_LOG') === 'on' && !isProduction(env)))
+
+/** Send queued emails. Delivery is tracked per message; a failure never touches the payment or event that caused it. */
+export const runOutbox = async (env) => {
+  if (!emailReady(env)) return { skipped: 'Email delivery is not configured (set RESEND_API_KEY and MAIL_FROM).' }
+  const batch = (await (runner ?? getPool(env)).query(`SELECT * FROM public.outbox_claim(25)`)).rows
+  let sent = 0, failed = 0
+  for (const m of batch) {
+    try {
+      await sendMail(env, { to: m.to_email, subject: m.subject, text: m.body, link: '(in-app notification)' })
+      await one(env, `SELECT public.outbox_mark($1, true, NULL)`, [m.id]); sent += 1
+    } catch (e) {
+      await one(env, `SELECT public.outbox_mark($1, false, $2)`, [m.id, e.message]); failed += 1
+    }
+  }
+  return { claimed: batch.length, sent, failed }
+}
+
+/** Re-check stuck online attempts with Paystack and settle what Paystack confirms. Idempotent. */
+const reconcileOrders = async (env, school = null) => {
+  if (!env('PAYSTACK_SECRET_KEY')) return { checked: 0, skipped: 'Paystack is not configured.' }
+  const refs = (await (runner ?? getPool(env)).query(`SELECT reference FROM public.fee_orders_to_reconcile($1, 25)`, [school])).rows.map((r) => r.reference)
+  const counts = {}
+  for (const ref of refs) {
+    try { const r = await feeSettleFromGateway(env, ref, 'reconcile'); counts[r.status] = (counts[r.status] ?? 0) + 1 }
+    catch (e) { counts.error = (counts.error ?? 0) + 1; console.error('[reconcile]', ref, e.message) }
+  }
+  return { checked: refs.length, ...counts }
+}
+
+export const feeReconcile = async (env, headers, { school }) => {
+  if (typeof school !== 'string' || !/^[0-9a-f-]{36}$/.test(school)) throw new HttpError(400, 'Choose a school.')
+  await asCaller(env, headers.authorization, 'fee_orders_list', { _school: school, _status: null, _limit: 1 })
+  return reconcileOrders(env, school)
+}
+
+/** Refund a payment (or excess money) through Paystack. The database checks the permission and reverses the ledger first. */
+export const feeRefund = async (env, headers, { payment, order, retry, reason }) => {
+  const auth = headers.authorization
+  let started
+  if (retry) started = await asCaller(env, auth, 'fee_refund_retry', { _refund: retry })
+  else if (payment) started = await asCaller(env, auth, 'fee_refund_begin', { _payment: payment, _reason: reason })
+  else if (order) started = await asCaller(env, auth, 'fee_refund_excess_begin', { _order: order, _reason: reason })
+  else throw new HttpError(400, 'Choose what to refund.')
+  if (started.method !== 'paystack') return { status: 'refunded', note: 'Recorded. The school returns this money itself.' }
+  if (!env('PAYSTACK_SECRET_KEY')) {
+    await one(env, `SELECT public.fee_refund_finish($1, false, NULL, 'Paystack is not configured on this server')`, [started.refund_id])
+    return { status: 'failed', error: 'Paystack is not configured on this server. The refund is recorded and can be retried.' }
+  }
+  try {
+    const res = await paystack(env, '/refund', { method: 'POST', body: JSON.stringify({ transaction: started.reference, amount: Math.round(Number(started.amount) * 100) }) })
+    await one(env, `SELECT public.fee_refund_finish($1, true, $2, NULL)`, [started.refund_id, res.data?.id == null ? null : String(res.data.id)])
+    return { status: 'refunded' }
+  } catch (e) {
+    await one(env, `SELECT public.fee_refund_finish($1, false, NULL, $2)`, [started.refund_id, e.message])
+    return { status: 'failed', error: e.message }
+  }
+}
+
+/** The scheduled job: reminders, event reminders, monitoring, stuck payments, then email. Needs CRON_SECRET. */
+export const runCron = async (env, headers) => {
+  const secret = env('CRON_SECRET')
+  if (!secret) throw new HttpError(503, 'The scheduled job is not set up: add CRON_SECRET.')
+  if (!safeEqual(String(headers.authorization ?? ''), `Bearer ${secret}`)) throw new HttpError(401, 'Not allowed.')
+  const out = {}
+  const step = async (name, fn) => { try { out[name] = await fn() } catch (e) { out[name] = { error: e.message }; console.error('[cron]', name, e.message) } }
+  await step('monitoring', async () => { await one(env, `SELECT public.audit_monitor_tick()`); return 'ok' })
+  await step('fee_reminders', async () => (await one(env, `SELECT public.fee_reminder_tick() AS n`)).n)
+  await step('event_reminders', async () => (await one(env, `SELECT public.calendar_reminder_tick() AS n`)).n)
+  await step('reconcile', () => reconcileOrders(env))
+  await step('outbox', () => runOutbox(env))
+  return out
 }

@@ -14,6 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import RecentEvents from "@/components/platform/RecentEvents";
+import { useAuth } from "@/contexts/AuthContext";
 import { money, useBillingOverview } from "@/hooks/useBilling";
 import { relative } from "@/hooks/useSchoolData";
 
@@ -34,6 +36,9 @@ const slugify = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "-").repla
 // shown: the database gives platform administrators no view of pupils' records.
 const PlatformPage = () => {
   const { toast } = useToast();
+  const { can } = useAuth();
+  const canCreate = can("clients.create");
+  const canSuspend = can("clients.suspend");
   const qc = useQueryClient();
   const [creating, setCreating] = useState(false);
   const [target, setTarget] = useState<SchoolRow | null>(null);
@@ -99,7 +104,7 @@ const PlatformPage = () => {
           <h1 className="font-heading text-2xl font-bold text-foreground">Platform Console</h1>
           <p className="text-sm text-muted-foreground">Registered schools and who can use them. Pupil records are not visible here.</p>
         </div>
-        <Button onClick={() => setCreating(true)}><Plus className="mr-1 h-4 w-4" /> Register a school</Button>
+        {canCreate && <Button onClick={() => setCreating(true)}><Plus className="mr-1 h-4 w-4" /> Register a school</Button>}
       </div>
 
       {err ? (
@@ -185,7 +190,7 @@ const PlatformPage = () => {
                         <td className="px-3 py-2.5">{s.parents}</td><td className="px-3 py-2.5">{s.invited}</td>
                         <td className="px-3 py-2.5 text-muted-foreground">{s.last_activity ? relative(s.last_activity) : "None yet"}</td>
                         <td className="px-3 py-2.5 text-right">
-                          <Button size="sm" variant="outline" onClick={() => { setTarget(s); setReason(""); }}>{s.status === "active" ? "Suspend" : "Restore"}</Button>
+                          {canSuspend && <Button size="sm" variant="outline" onClick={() => { setTarget(s); setReason(""); }}>{s.status === "active" ? "Suspend" : "Restore"}</Button>}
                         </td>
                       </tr>
                     ))}
@@ -194,6 +199,8 @@ const PlatformPage = () => {
               </div>
             )}
           </Panel>
+
+          {can("audit.view") && <div className="mb-6"><RecentEvents mine={false} title="Recent administrator actions" /></div>}
 
           <Panel title="Not built yet" icon={HeartPulse}>
             <p className="text-sm text-muted-foreground">

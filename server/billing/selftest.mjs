@@ -167,3 +167,85 @@ test('a reset email that cannot be sent is reported as failed, not as sent', asy
   assert.match(out.error, /not configured/)
   assert.equal((await client.query(`SELECT state, token_hash IS NULL AS burned FROM public.password_reset_requests WHERE id = $1`, [req.id])).rows[0].burned, true)
 })
+
+// ---- School fee payments: same Paystack rules, but they settle into the school's own fee ledger ----
+const feeFixture = async (name, amount = 1000) => {
+  const b = (await client.query(`SELECT public.bootstrap_school($1, $2, 'Fee Admin', $3) AS b`, [name, name.toLowerCase().replace(/\W+/g, '-'), `fee-${Date.now()}@selftest.invalid`])).rows[0].b
+  const school = b.school_id
+  const student = (await client.query(`INSERT INTO public.profiles (school_id, full_name, status) VALUES ($1, 'Fee Student', 'active') RETURNING id`, [school])).rows[0].id
+  const inv = (await client.query(`INSERT INTO public.invoices (school_id, student_id, number, title, due_on, total) VALUES ($1, $2, 'INV-T-1', 'Term fees', current_date + 30, 3000) RETURNING id`, [school, student])).rows[0].id
+  const ref = `FEE-${Math.random().toString(36).slice(2, 12).toUpperCase().padEnd(10, 'X')}`
+  await client.query(`INSERT INTO public.fee_payment_orders (school_id, invoice_id, student_id, payer_user_id, payer_email, reference, amount, currency, status)
+    VALUES ($1, $2, $3, gen_random_uuid(), 'payer@selftest.invalid', $4, $5, 'GHS', 'pending')`, [school, inv, student, ref, amount])
+  return { school, inv, ref }
+}
+const feePayments = async (inv) => Number((await client.query(`SELECT count(*) FROM public.payments WHERE invoice_id = $1 AND status = 'recorded'`, [inv])).rows[0].count)
+
+test('a school fee webhook settles into the fee ledger once, and never touches platform billing', async () => {
+  const f = await feeFixture('Fee School One', 1000)
+  paystackTx[f.ref] = { status: 'success', amount: 100000, currency: 'GHS', channel: 'card', id: 901, paid_at: new Date().toISOString() }
+  const body = webhookBody(f.ref, 901)
+  const before = Number((await client.query(`SELECT count(*) FROM public.billing_orders`)).rows[0].count)
+  assert.equal((await webhook(env, { 'x-paystack-signature': sign(body) }, body)).status, 'paid')
+  assert.equal((await webhook(env, { 'x-paystack-signature': sign(body) }, body)).status, 'paid')
+  assert.equal(await feePayments(f.inv), 1, 'a repeated webhook does not create a second payment')
+  assert.equal(Number((await client.query(`SELECT count(*) FROM public.billing_orders`)).rows[0].count), before, 'no platform order was created or changed')
+})
+
+test('a school fee payment that Paystack reports as failed adds nothing to the ledger', async () => {
+  const f = await feeFixture('Fee School Two', 500)
+  paystackTx[f.ref] = { status: 'failed', amount: 50000, currency: 'GHS', id: 902, gateway_response: 'Declined' }
+  const body = webhookBody(f.ref, 902)
+  assert.equal((await webhook(env, { 'x-paystack-signature': sign(body) }, body)).status, 'failed')
+  assert.equal(await feePayments(f.inv), 0)
+})
+
+test('a school fee paid with a different amount than ordered is flagged, not applied', async () => {
+  const f = await feeFixture('Fee School Three', 800)
+  paystackTx[f.ref] = { status: 'success', amount: 10000, currency: 'GHS', id: 903, paid_at: new Date().toISOString() }
+  const { feeSettleFromGateway } = await import('./core.mjs')
+  assert.equal((await feeSettleFromGateway(env, f.ref, 'verify')).status, 'mismatch')
+  assert.equal(await feePayments(f.inv), 0)
+})
+
+test('starting a school fee payment needs a signed-in caller and the Paystack key', async () => {
+  const { feeInitialize } = await import('./core.mjs')
+  await assert.rejects(() => feeInitialize(makeEnv({ DATABASE_URL: url }), {}, { invoice: '00000000-0000-0000-0000-000000000000', amount: 10 }), (e) => e instanceof HttpError && e.status === 503)
+  await assert.rejects(() => feeInitialize(env, {}, { invoice: '00000000-0000-0000-0000-000000000000', amount: 10 }), (e) => e instanceof HttpError && e.status === 401)
+  await assert.rejects(() => feeInitialize(env, { authorization: 'Bearer x' }, { invoice: 'nope', amount: 10 }), (e) => e instanceof HttpError && e.status === 400)
+})
+
+test('the scheduled job refuses callers without the secret, and is off until a secret is set', async () => {
+  const { runCron } = await import('./core.mjs')
+  await assert.rejects(() => runCron(makeEnv({ DATABASE_URL: url }), {}), (e) => e instanceof HttpError && e.status === 503)
+  const withSecret = makeEnv({ CRON_SECRET: 'cron-secret-for-selftest', DATABASE_URL: url })
+  await assert.rejects(() => runCron(withSecret, {}), (e) => e instanceof HttpError && e.status === 401)
+  await assert.rejects(() => runCron(withSecret, { authorization: 'Bearer wrong' }), (e) => e instanceof HttpError && e.status === 401)
+})
+
+test('the outbox does not claim or burn attempts when email is not configured', async () => {
+  const { runOutbox } = await import('./core.mjs')
+  const before = Number((await client.query(`SELECT coalesce(sum(attempts), 0) AS n FROM public.notification_outbox`)).rows[0].n)
+  const r = await runOutbox(makeEnv({ DATABASE_URL: url }))
+  assert.ok(r.skipped)
+  assert.equal(Number((await client.query(`SELECT coalesce(sum(attempts), 0) AS n FROM public.notification_outbox`)).rows[0].n), before)
+})
+
+test('queued email is sent once and a failure is recorded for retry', async () => {
+  const { runOutbox } = await import('./core.mjs')
+  await client.query(`UPDATE public.notification_outbox SET status = 'dead' WHERE status IN ('pending', 'failed')`)
+  const f = await feeFixture('Outbox School', 100)
+  await client.query(`INSERT INTO public.notification_outbox (school_id, to_email, subject, body, dedupe_key) VALUES ($1, 'a@selftest.invalid', 'Hello', 'Body', 'selftest-ok'), ($1, 'b@selftest.invalid', 'Fail', 'Body', 'selftest-fail')`, [f.school])
+  const mailEnv = makeEnv({ RESEND_API_KEY: 're_test', MAIL_FROM: 'Tech Oasis <noreply@selftest.invalid>', DATABASE_URL: url })
+  const real = globalThis.fetch
+  globalThis.fetch = async (u, init = {}) => {
+    if (String(u).includes('api.resend.com')) { const ok = !String(init.body).includes('b@selftest.invalid'); return { ok, status: ok ? 200 : 500, json: async () => ({}) } }
+    return real(u, init)
+  }
+  try {
+    const r = await runOutbox(mailEnv)
+    assert.equal(r.sent, 1); assert.equal(r.failed, 1)
+  } finally { globalThis.fetch = real }
+  const rows = (await client.query(`SELECT dedupe_key, status FROM public.notification_outbox WHERE dedupe_key LIKE 'selftest-%' ORDER BY dedupe_key`)).rows
+  assert.deepEqual(rows.map((x) => x.status), ['failed', 'sent'])
+})

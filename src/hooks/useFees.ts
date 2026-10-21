@@ -9,7 +9,7 @@ export const METHODS: { value: string; label: string }[] = [
   { value: "cheque", label: "Cheque" },
   { value: "other", label: "Other" },
 ];
-export const methodLabel = (m: string) => METHODS.find((x) => x.value === m)?.label ?? m;
+export const methodLabel = (m: string) => (m === "paystack" ? "Paystack (online)" : METHODS.find((x) => x.value === m)?.label ?? m);
 
 export interface InvoiceRow {
   id: string; number: string; student_id: string; student_name: string; class_name: string | null; title: string;
@@ -24,7 +24,7 @@ export interface InvoiceDetail {
   school: { name: string; currency: string; logo_url: string | null };
   student: { id: string; name: string; admission_number: string | null; class: string | null };
   lines: { description: string; amount: number }[];
-  payments: { id: string; receipt: string; amount: number; method: string; reference: string | null; paid_on: string; status: "recorded" | "voided"; void_reason: string | null; recorded_by: string | null }[];
+  payments: { id: string; receipt: string; amount: number; method: string; reference: string | null; paid_on: string; status: "recorded" | "voided" | "pending"; void_reason: string | null; recorded_by: string | null }[];
   can_record: boolean; can_void: boolean; can_cancel: boolean;
 }
 export interface FeeSummary {
@@ -59,8 +59,8 @@ export const useFeeActions = (schoolId: string) => {
   const refresh = () => ["fee-summary", "invoices", "invoice", "fee-structures", "notifications", "unread-notifications"].forEach((k) => qc.invalidateQueries({ queryKey: [k] }));
   const useAction = <A, R = unknown>(fn: (a: A) => Promise<R>) => useMutation({ mutationFn: fn, onSuccess: refresh });
   return {
-    saveStructure: useAction((v: { id: string | null; name: string; description: string; amount: number; classId: string | null; dueOn: string; active: boolean }) =>
-      rpc("save_fee_structure", { _school: schoolId, _id: v.id, _name: v.name, _description: v.description, _amount: v.amount, _class: v.classId, _term: null, _due: v.dueOn, _active: v.active })),
+    saveStructure: useAction((v: { id: string | null; name: string; description: string; amount: number; classId: string | null; termId?: string | null; dueOn: string; active: boolean }) =>
+      rpc("save_fee_structure", { _school: schoolId, _id: v.id, _name: v.name, _description: v.description, _amount: v.amount, _class: v.classId, _term: v.termId ?? null, _due: v.dueOn, _active: v.active })),
     generate: useAction((v: { structure: string; classId: string }) => rpc<{ created: number; skipped: number }>("generate_invoices", { _structure: v.structure, _class: v.classId })),
     createInvoice: useAction((v: { student: string; title: string; dueOn: string; lines: { description: string; amount: number }[] }) =>
       rpc<string>("create_invoice", { _student: v.student, _title: v.title, _due: v.dueOn, _lines: v.lines })),

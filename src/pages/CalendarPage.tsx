@@ -11,6 +11,7 @@ import {
   type Announcement, type SchoolEvent,
 } from "@/hooks/useSchoolData";
 import EventDialog from "@/components/calendar/EventDialog";
+import { useCalendarPeriods } from "@/hooks/useFeeAdmin";
 import NoticeDialog from "@/components/calendar/NoticeDialog";
 import NoticeBoard from "@/components/calendar/NoticeBoard";
 import { localDate } from "@/components/calendar/shared";
@@ -28,6 +29,7 @@ const CalendarPage = () => {
   const [eventEdit, setEventEdit] = useState<{ event: SchoolEvent | null } | null>(null);
   const [noticeEdit, setNoticeEdit] = useState<{ notice: Announcement | null } | null>(null);
 
+  const periods = useCalendarPeriods(schoolId);
   const manage = can("communications.manage");
   const teacherPosting = !manage && user?.role === "teacher";
   const me = user?.id;
@@ -43,11 +45,29 @@ const CalendarPage = () => {
   }, [classes.data, assignments.data, teacherPosting, me]);
 
   const className = useMemo(() => new Map((classes.data ?? []).map((c) => [c.id, c.name])), [classes.data]);
-  const marked = useMemo(() => (events.data ?? []).map((e) => localDate(e.starts_at)), [events.data]);
   const shown = useMemo(() => {
     const all = events.data ?? [];
-    return day ? all.filter((e) => localDate(e.starts_at) === day) : upcoming(all, 8);
+    const list = day ? all.filter((e) => localDate(e.starts_at) === day) : upcoming(all, 8);
+    // Drafts and cancelled events are labelled so nobody mistakes them for a live event.
+    return list.map((e) => { const st = (e as { status?: string }).status; return st === "cancelled" ? { ...e, title: "Cancelled: " + e.title } : st === "draft" ? { ...e, title: "Draft: " + e.title } : e; });
   }, [events.data, day]);
+
+  // Academic period dates from the school's published calendar (fee deadlines only for people who deal with fees).
+  const periodItems = useMemo(() => {
+    const items: { date: string; label: string }[] = [];
+    for (const p of periods.data ?? []) {
+      const t = p.term + (p.status === "draft" ? " (draft)" : "");
+      items.push({ date: p.starts_on, label: `${t} begins` }, { date: p.ends_on, label: `${t} ends` });
+      if (p.fee_due_on) items.push({ date: p.fee_due_on, label: `${p.term}: fees due` });
+      if (p.exams_start) items.push({ date: p.exams_start, label: `${p.term}: examinations begin` });
+      if (p.exams_end) items.push({ date: p.exams_end, label: `${p.term}: examinations end` });
+      if (p.break_start) items.push({ date: p.break_start, label: "Break begins" });
+      if (p.break_end) items.push({ date: p.break_end, label: "Break ends" });
+    }
+    return items.sort((a, b) => a.date.localeCompare(b.date));
+  }, [periods.data]);
+  const marked = useMemo(() => [...(events.data ?? []).map((e) => localDate(e.starts_at)), ...periodItems.map((i) => i.date)], [events.data, periodItems]);
+  const nextPeriodItems = periodItems.filter((i) => day ? i.date === day : i.date >= todayIso()).slice(0, 6);
 
   const queries = [events, notices, classes, assignments];
   const loading = queries.some((q) => q.isLoading);
@@ -111,6 +131,13 @@ const CalendarPage = () => {
                   </ul>
                 )}
               </Panel>
+              {nextPeriodItems.length > 0 && (
+                <Panel title="School periods and deadlines" icon={CalendarDays}>
+                  <ul className="divide-y divide-border text-sm">
+                    {nextPeriodItems.map((i, k) => <li key={k} className="flex justify-between py-1.5"><span>{i.label}</span><span className="text-muted-foreground">{new Date(`${i.date}T00:00:00`).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></li>)}
+                  </ul>
+                </Panel>
+              )}
             </div>
             <Panel title="Notice board" icon={Megaphone} className="lg:col-span-2">
               <NoticeBoard

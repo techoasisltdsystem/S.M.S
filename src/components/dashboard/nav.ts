@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, DollarSign, ClipboardList,
-  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, UserCog, HeartPulse, KeyRound, type LucideIcon,
+  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, UserCog, HeartPulse, KeyRound, BarChart3, ClipboardCheck, FileText, type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/contexts/AuthContext";
 
@@ -20,39 +20,58 @@ export interface NavGroup {
 // a page that exists in App.tsx; unbuilt modules open an honest "not built yet" page.
 export const NAV: Record<UserRole, NavGroup[]> = {
   platform: [
-    { items: [{ label: "Platform overview", icon: LayoutDashboard, path: "/platform" }] },
     {
-      title: "Clients",
+      title: "Overview",
       items: [
-        { label: "Clients and schools", icon: Building2, path: "/platform/clients" },
-        { label: "Create and suspend", icon: School, path: "/platform/schools" },
-        { label: "Subscriptions", icon: CreditCard, path: "/platform/subscriptions" },
-        { label: "Renewals and expiry", icon: CalendarClock, path: "/platform/renewals" },
+        { label: "Platform overview", icon: LayoutDashboard, path: "/platform", permission: "clients.view" },
+        { label: "Analytics and reports", icon: BarChart3, path: "/platform/reports", permission: "billing.view" },
+        { label: "System health", icon: HeartPulse, path: "/platform/health", permission: "health.view" },
       ],
     },
     {
-      title: "Billing",
+      title: "Clients and schools",
       items: [
-        { label: "Pricing and packages", icon: Tags, path: "/platform/packages" },
-        { label: "Payments", icon: Receipt, path: "/platform/billing" },
+        { label: "Clients and schools", icon: Building2, path: "/platform/clients", permission: "clients.view" },
+        { label: "Create and suspend", icon: School, path: "/platform/schools", permission: "clients.create" },
+        { label: "School onboarding", icon: ClipboardCheck, path: "/platform/onboarding", permission: "clients.view" },
+        { label: "School administrators", icon: UserCheck, path: "/platform/school-admins", permission: "clients.view" },
+        { label: "School usage", icon: Users, path: "/platform/usage", permission: "clients.view" },
       ],
     },
     {
-      title: "Oversight",
+      title: "Subscriptions and billing",
       items: [
-        { label: "Audit and security", icon: ShieldAlert, path: "/platform/audit" },
-        { label: "Administrative activity", icon: Activity, path: "/platform/activity" },
-        { label: "Support", icon: LifeBuoy, path: "/platform/support" },
-        { label: "Platform settings", icon: Settings, path: "/platform/settings" },
+        { label: "Subscriptions", icon: CreditCard, path: "/platform/subscriptions", permission: "clients.view" },
+        { label: "Renewals and expiry", icon: CalendarClock, path: "/platform/renewals", permission: "clients.view" },
+        { label: "Pricing and packages", icon: Tags, path: "/platform/packages", permission: "billing.view" },
+        { label: "Payments", icon: Receipt, path: "/platform/billing", permission: "billing.view" },
+        { label: "Invoices and receipts", icon: FileText, path: "/platform/invoices", permission: "billing.view" },
       ],
     },
     {
-      title: "Administration",
+      title: "Platform management",
       items: [
-        { label: "Super Admin team", icon: UserCog, path: "/platform/admins" },
-        { label: "System health", icon: HeartPulse, path: "/platform/health" },
-        { label: "My account", icon: KeyRound, path: "/platform/profile" },
+        { label: "Platform administrators", icon: UserCog, path: "/platform/admins", permission: "admins.manage" },
+        { label: "Roles and permissions", icon: ShieldCheck, path: "/platform/roles", permission: "admins.manage" },
+        { label: "Platform settings", icon: Settings, path: "/platform/settings", permission: "billing.view" },
+        { label: "Announcements", icon: Megaphone, path: "/platform/announcements", permission: "announcements.manage" },
       ],
+    },
+    {
+      title: "Security and oversight",
+      items: [
+        { label: "Audit and security", icon: ShieldAlert, path: "/platform/audit", permission: "audit.view" },
+        { label: "Administrative activity", icon: Activity, path: "/platform/activity", permission: "audit.view" },
+        { label: "Security events and sign-ins", icon: History, path: "/platform/events", permission: "audit.view" },
+      ],
+    },
+    {
+      title: "Support",
+      items: [{ label: "Support", icon: LifeBuoy, path: "/platform/support", permission: "support.view" }],
+    },
+    {
+      title: "Account",
+      items: [{ label: "Account and security", icon: KeyRound, path: "/platform/profile" }],
     },
   ],
   admin: [
@@ -102,6 +121,7 @@ export const NAV: Record<UserRole, NavGroup[]> = {
       ],
     },
     { title: "Communication", items: [{ label: "Messages", icon: MessageSquare, path: "/messages" }, { label: "Calendar & Notices", icon: Megaphone, path: "/calendar" }] },
+    { title: "Finance", items: [{ label: "Class fee status", icon: DollarSign, path: "/fees", permission: "fees.status" }] },
   ],
   student: [
     { items: [{ label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" }] },
@@ -116,6 +136,7 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Notices & Calendar", icon: Megaphone, path: "/calendar" },
       ],
     },
+    { title: "Finance", items: [{ label: "My fees", icon: DollarSign, path: "/fees" }] },
   ],
   parent: [
     { items: [{ label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" }] },

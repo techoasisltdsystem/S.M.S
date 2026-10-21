@@ -203,4 +203,4 @@ export const useBillingActions = () => {
 
 /** All matching transactions (up to 200) for the CSV export. */
 export const rpcExportTransactions = (status: string, search: string) =>
-  rpc<TxRow[]>("platform_transactions", { _status: status || null, _search: search || null, _school: null, _limit: 200, _offset: 0 });
+  rpc<TxRow[]>("platform_export_transactions", { _status: status || null, _search: search || null });
