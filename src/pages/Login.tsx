@@ -124,6 +124,7 @@ const Login = ({ initialRole }: { initialRole?: Role }) => {
             </motion.button>
           </form>
           <p className="mt-8 text-center text-xs text-muted-foreground">Signing in as a {ROLES.find((r) => r.value === role)?.label.toLowerCase()}. Each login opens only that kind of account.</p>
+          <p className="mt-3 text-center text-xs text-muted-foreground">Running the platform? <Link to="/super-admin/login" className="font-semibold text-primary hover:underline">Platform admin login</Link></p>
         </motion.div>
       </div>
     </div>
