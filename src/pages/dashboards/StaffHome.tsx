@@ -1,5 +1,6 @@
-import { Calendar, Library, MessageSquare, Megaphone } from "lucide-react";
-import Welcome from "@/components/kit/Welcome";
+import { Bell, Calendar, Library, MessageSquare, Megaphone, ShieldCheck, Sparkles, UserRound } from "lucide-react";
+import HeroBanner from "@/components/kit/HeroBanner";
+import KitStat from "@/components/kit/KitStat";
 import QuickLinks from "@/components/kit/QuickLinks";
 import { Panel } from "@/components/kit/Panel";
 import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
@@ -11,10 +12,21 @@ const StaffHome = () => {
   const { user, can } = useAuth();
   const unread = useUnreadCount(user?.schoolId);
   const n = unread.data ?? 0;
+  const hour = new Date().getHours();
 
   return (
-    <>
-      <Welcome name={user?.name.split(" ")[0] ?? ""} sub={user ? MEMBER_ROLE_LABEL[user.memberRole] : undefined} />
+    <div className="grid gap-4">
+      <HeroBanner
+        eyebrow={hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening"}
+        title={`${user?.name.split(" ")[0] ?? ""}!`}
+        text={`${user ? MEMBER_ROLE_LABEL[user.memberRole] : ""} · ${user?.schoolName ?? ""}`}
+        icons={[UserRound, ShieldCheck, Sparkles]}
+      />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <KitStat delay={0} to="/messages" icon={MessageSquare} tone="info" label="Unread Messages" value={n} sub={n > 0 ? "Open your inbox" : "You are up to date"} />
+        <KitStat delay={0.06} to="/calendar" icon={Calendar} tone="success" label="Calendar" value="View" sub="School events and dates" />
+        <KitStat delay={0.12} to="/calendar" icon={Bell} tone="warning" label="Notices" value="Read" sub="Announcements for you" />
+      </div>
       <div className="grid gap-6 lg:grid-cols-2">
         <Panel title="Quick links" icon={Megaphone}>
           <QuickLinks
@@ -33,7 +45,7 @@ const StaffHome = () => {
           </p>
         </Panel>
       </div>
-    </>
+    </div>
   );
 };
 
