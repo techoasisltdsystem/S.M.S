@@ -121,6 +121,7 @@ export const NAV: Record<UserRole, NavGroup[]> = {
       ],
     },
     { title: "Communication", items: [{ label: "Messages", icon: MessageSquare, path: "/messages" }, { label: "Calendar & Notices", icon: Megaphone, path: "/calendar" }] },
+    { title: "Finance", items: [{ label: "Class fee status", icon: DollarSign, path: "/fees", permission: "fees.status" }] },
   ],
   student: [
     { items: [{ label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" }] },
@@ -135,6 +136,7 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Notices & Calendar", icon: Megaphone, path: "/calendar" },
       ],
     },
+    { title: "Finance", items: [{ label: "My fees", icon: DollarSign, path: "/fees" }] },
   ],
   parent: [
     { items: [{ label: "Dashboard", icon: LayoutDashboard, path: "/dashboard" }] },

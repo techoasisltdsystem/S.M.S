@@ -2,6 +2,11 @@ import { useMemo, useState } from "react";
 import { BellRing, ChevronLeft, ChevronRight, DollarSign, FileSpreadsheet, FilePlus2, Layers, Loader2, Plus, Search, Trash2, Users } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import OnlinePayments from "@/components/fees/OnlinePayments";
+import FeePeriods from "@/components/fees/FeePeriods";
+import FeeReports from "@/components/fees/FeeReports";
+import FeeSettingsPanel from "@/components/fees/FeeSettingsPanel";
+import { loadStatement, useClassStatus, usePeriods } from "@/hooks/useFeeAdmin";
+import { statementPdf } from "@/lib/reports";
 import InvoiceDialog, { StatusChip, STATUS_LABEL } from "@/components/fees/InvoiceDialog";
 import { EmptyState, Panel } from "@/components/kit/Panel";
 import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState";
@@ -113,12 +118,13 @@ const StructureDialog = ({ schoolId, item, onClose }: { schoolId: string; item: 
   const { toast } = useToast();
   const classes = useClasses(schoolId);
   const { saveStructure } = useFeeActions(schoolId);
-  const [f, setF] = useState({ name: "", description: "", amount: "", classId: ANY, dueOn: plusDays(30), active: true });
+  const periods = usePeriods(schoolId);
+  const [f, setF] = useState({ name: "", description: "", amount: "", classId: ANY, termId: "", dueOn: plusDays(30), active: true });
   const [seed, setSeed] = useState<unknown>(null);
   if (item !== seed) {
     setSeed(item);
-    if (item === "new") setF({ name: "", description: "", amount: "", classId: ANY, dueOn: plusDays(30), active: true });
-    else if (item) setF({ name: item.name, description: item.description ?? "", amount: String(item.amount), classId: item.class_id ?? ANY, dueOn: item.due_on, active: item.is_active });
+    if (item === "new") setF({ name: "", description: "", amount: "", classId: ANY, termId: "", dueOn: plusDays(30), active: true });
+    else if (item) setF({ name: item.name, description: item.description ?? "", amount: String(item.amount), classId: item.class_id ?? ANY, termId: (item as { term_id?: string | null }).term_id ?? "", dueOn: item.due_on, active: item.is_active });
   }
   return (
     <Dialog open={!!item} onOpenChange={(o) => !o && onClose()}>
@@ -138,6 +144,14 @@ const StructureDialog = ({ schoolId, item, onClose }: { schoolId: string; item: 
               <SelectContent><SelectItem value={ANY}>Any class</SelectItem>{(classes.data ?? []).map((c) => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}</SelectContent>
             </Select>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="fs-term">Academic period (optional)</Label>
+            <select id="fs-term" value={f.termId} onChange={(e) => setF({ ...f, termId: e.target.value })} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="">Not linked to a period</option>
+              {(periods.data?.terms ?? []).filter((t) => t.status !== "closed").map((t) => <option key={t.id} value={t.id}>{(periods.data?.years ?? []).find((y) => y.id === t.academic_year_id)?.name} · {t.name}</option>)}
+            </select>
+            <p className="text-xs text-muted-foreground">Invoices raised from a linked fee take that period&apos;s fee due date, and move with it if the school changes it.</p>
+          </div>
           <label className="flex items-center gap-2 text-sm"><Switch checked={f.active} onCheckedChange={(v) => setF({ ...f, active: v })} /> Active (can be used to generate invoices)</label>
         </div>
         <DialogFooter className="gap-2">
@@ -145,7 +159,7 @@ const StructureDialog = ({ schoolId, item, onClose }: { schoolId: string; item: 
           <Button disabled={!f.name.trim() || !(Number(f.amount) > 0) || saveStructure.isPending}
             onClick={async () => {
               try {
-                await saveStructure.mutateAsync({ id: item === "new" || !item ? null : item.id, name: f.name.trim(), description: f.description.trim(), amount: Number(f.amount), classId: f.classId === ANY ? null : f.classId, dueOn: f.dueOn, active: f.active });
+                await saveStructure.mutateAsync({ id: item === "new" || !item ? null : item.id, name: f.name.trim(), description: f.description.trim(), amount: Number(f.amount), classId: f.classId === ANY ? null : f.classId, termId: f.termId || null, dueOn: f.dueOn, active: f.active });
                 toast({ title: "Fee saved" });
                 onClose();
               } catch (e) { toast({ title: "Not saved", description: errMsg(e), variant: "destructive" }); }
@@ -224,7 +238,7 @@ const StaffFees = ({ schoolId }: { schoolId: string }) => {
   return (
     <>
       <Tabs defaultValue="overview">
-        <TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="invoices">Invoices</TabsTrigger><TabsTrigger value="fees">Fee structures</TabsTrigger><TabsTrigger value="online">Online payments</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="invoices">Invoices</TabsTrigger><TabsTrigger value="fees">Fee structures</TabsTrigger><TabsTrigger value="online">Online payments</TabsTrigger><TabsTrigger value="reports">Reports</TabsTrigger><TabsTrigger value="periods">Periods</TabsTrigger><TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           {summary.isLoading && <LoadingRows rows={3} />}
@@ -300,6 +314,9 @@ const StaffFees = ({ schoolId }: { schoolId: string }) => {
         </TabsContent>
 
         <TabsContent value="online" className="mt-4"><OnlinePayments schoolId={schoolId} /></TabsContent>
+        <TabsContent value="reports" className="mt-4"><FeeReports schoolId={schoolId} /></TabsContent>
+        <TabsContent value="periods" className="mt-4"><FeePeriods schoolId={schoolId} /></TabsContent>
+        <TabsContent value="settings" className="mt-4"><FeeSettingsPanel schoolId={schoolId} /></TabsContent>
 
         <TabsContent value="fees" className="mt-4">
           <Panel title="Fee structures" icon={Layers}>
@@ -323,6 +340,59 @@ const StaffFees = ({ schoolId }: { schoolId: string }) => {
       <StructureDialog schoolId={schoolId} item={editing} onClose={() => setEditing(null)} />
       <GenerateDialog schoolId={schoolId} item={generating} onClose={() => setGenerating(null)} />
     </>
+  );
+};
+
+const StatementButton = ({ schoolId, student }: { schoolId: string; student: string }) => {
+  const { toast } = useToast();
+  const [busy, setBusy] = useState(false);
+  return (
+    <Button variant="outline" size="sm" disabled={busy} onClick={async () => {
+      setBusy(true);
+      try { statementPdf(await loadStatement(schoolId, student)); } catch (e) { toast({ title: "Could not make the statement", description: errMsg(e), variant: "destructive" }); } finally { setBusy(false); }
+    }}>Download fee statement (PDF)</Button>
+  );
+};
+
+const STATUS_TEXT: Record<string, string> = { none: "No fees", overdue: "Overdue", part_paid: "Partly paid", not_yet_due: "Not yet due", paid: "Paid" };
+
+/** A teacher the school has allowed to see fee status: a one-word status per student of their class, no amounts or history. */
+const TeacherStatus = ({ schoolId }: { schoolId: string }) => {
+  const classes = useClasses(schoolId);
+  const [cls, setCls] = useState("");
+  const q = useClassStatus(schoolId, cls);
+  return (
+    <Panel title="Fee status of my class" icon={DollarSign}>
+      <div className="mb-3 max-w-xs space-y-2"><Label htmlFor="ts-class">Class</Label>
+        <select id="ts-class" value={cls} onChange={(e) => setCls(e.target.value)} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+          <option value="">Choose a class</option>{(classes.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}</select></div>
+      {q.isError && <ErrorBox message={errMsg(q.error)} onRetry={() => q.refetch()} />}
+      <ul className="divide-y divide-border text-sm">{(q.data ?? []).map((r) => <li key={r.student_id} className="flex justify-between py-2"><span>{r.student_name}</span><span className={r.status === "overdue" ? "font-medium text-destructive" : r.status === "paid" ? "text-success" : "text-muted-foreground"}>{STATUS_TEXT[r.status]}</span></li>)}</ul>
+      <p className="mt-3 text-xs text-muted-foreground">You can see only a status. Amounts, payments and receipts are for the school office and the family.</p>
+    </Panel>
+  );
+};
+
+/** A student sees their own fees only. Paying is offered only when the school allows it. */
+const StudentFees = ({ schoolId, me }: { schoolId: string; me: string }) => {
+  const [openId, setOpenId] = useState<string | null>(null);
+  const invoices = useInvoices(schoolId, { student: me });
+  const owed = (invoices.data ?? []).reduce((n, r) => n + r.balance, 0);
+  return (
+    <div className="space-y-4">
+      <Panel title="My fees" icon={DollarSign}>
+        {invoices.isLoading && <LoadingRows rows={2} />}
+        {invoices.isError && <ErrorBox message={errMsg(invoices.error)} onRetry={() => invoices.refetch()} />}
+        {!invoices.isLoading && (invoices.data ?? []).length === 0 && <EmptyState icon={DollarSign} title="No invoices" text="Invoices the school issues for you appear here." />}
+        {(invoices.data ?? []).length > 0 && (
+          <>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm">Total outstanding: <span className="font-semibold">{money(owed)}</span></p><StatementButton schoolId={schoolId} student={me} /></div>
+            <InvoiceTable rows={invoices.data} onOpen={setOpenId} showStudent={false} />
+          </>
+        )}
+      </Panel>
+      <InvoiceDialog schoolId={schoolId} id={openId} onClose={() => setOpenId(null)} />
+    </div>
   );
 };
 
@@ -355,7 +425,7 @@ const ParentFees = ({ schoolId, me }: { schoolId: string; me: string }) => {
         {!invoices.isLoading && (invoices.data ?? []).length === 0 && <EmptyState icon={DollarSign} title="No invoices" text="Invoices the school issues for your child appear here." />}
         {(invoices.data ?? []).length > 0 && (
           <>
-            <p className="mb-3 text-sm">Total outstanding: <span className="font-semibold">{money(owed)}</span></p>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm">Total outstanding for {child ? name(child) : "your child"}: <span className="font-semibold">{money(owed)}</span></p>{child && <StatementButton schoolId={schoolId} student={child} />}</div>
             <InvoiceTable rows={invoices.data} onOpen={setOpenId} showStudent={false} />
             <p className="mt-3 text-xs text-muted-foreground">Open an invoice to pay online with Paystack. Payments made at the school office are recorded here by the school, and every confirmed payment has a receipt.</p>
           </>
@@ -382,8 +452,12 @@ const FeesPage = () => {
           <StaffFees schoolId={schoolId} />
         ) : user.role === "parent" ? (
           <ParentFees schoolId={schoolId} me={user.id} />
+        ) : user.role === "student" ? (
+          <StudentFees schoolId={schoolId} me={user.id} />
+        ) : can("fees.status") ? (
+          <TeacherStatus schoolId={schoolId} />
         ) : (
-          <EmptyState icon={DollarSign} title="No access to fees" text="Fees are visible to the school's finance office and to parents for their own children." />
+          <EmptyState icon={DollarSign} title="No access to fees" text="Fees are visible to the school's finance office, to parents for their own children and to students for themselves." />
         )}
       </div>
     </DashboardLayout>

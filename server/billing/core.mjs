@@ -453,3 +453,80 @@ export const feeVerify = async (env, headers, { reference }) => {
   await feeSettleFromGateway(env, reference, 'verify')
   return asCaller(env, headers.authorization, 'fee_pay_status', { _reference: reference })
 }
+
+// ---------------------------------------------------------------------------------------------
+// Refunds, reconciliation, the email outbox and the scheduled job
+// ---------------------------------------------------------------------------------------------
+const emailReady = (env) => !!((env('RESEND_API_KEY') && env('MAIL_FROM')) || (env('MAIL_DEV_LOG') === 'on' && !isProduction(env)))
+
+/** Send queued emails. Delivery is tracked per message; a failure never touches the payment or event that caused it. */
+export const runOutbox = async (env) => {
+  if (!emailReady(env)) return { skipped: 'Email delivery is not configured (set RESEND_API_KEY and MAIL_FROM).' }
+  const batch = (await (runner ?? getPool(env)).query(`SELECT * FROM public.outbox_claim(25)`)).rows
+  let sent = 0, failed = 0
+  for (const m of batch) {
+    try {
+      await sendMail(env, { to: m.to_email, subject: m.subject, text: m.body, link: '(in-app notification)' })
+      await one(env, `SELECT public.outbox_mark($1, true, NULL)`, [m.id]); sent += 1
+    } catch (e) {
+      await one(env, `SELECT public.outbox_mark($1, false, $2)`, [m.id, e.message]); failed += 1
+    }
+  }
+  return { claimed: batch.length, sent, failed }
+}
+
+/** Re-check stuck online attempts with Paystack and settle what Paystack confirms. Idempotent. */
+const reconcileOrders = async (env, school = null) => {
+  if (!env('PAYSTACK_SECRET_KEY')) return { checked: 0, skipped: 'Paystack is not configured.' }
+  const refs = (await (runner ?? getPool(env)).query(`SELECT reference FROM public.fee_orders_to_reconcile($1, 25)`, [school])).rows.map((r) => r.reference)
+  const counts = {}
+  for (const ref of refs) {
+    try { const r = await feeSettleFromGateway(env, ref, 'reconcile'); counts[r.status] = (counts[r.status] ?? 0) + 1 }
+    catch (e) { counts.error = (counts.error ?? 0) + 1; console.error('[reconcile]', ref, e.message) }
+  }
+  return { checked: refs.length, ...counts }
+}
+
+export const feeReconcile = async (env, headers, { school }) => {
+  if (typeof school !== 'string' || !/^[0-9a-f-]{36}$/.test(school)) throw new HttpError(400, 'Choose a school.')
+  await asCaller(env, headers.authorization, 'fee_orders_list', { _school: school, _status: null, _limit: 1 })
+  return reconcileOrders(env, school)
+}
+
+/** Refund a payment (or excess money) through Paystack. The database checks the permission and reverses the ledger first. */
+export const feeRefund = async (env, headers, { payment, order, retry, reason }) => {
+  const auth = headers.authorization
+  let started
+  if (retry) started = await asCaller(env, auth, 'fee_refund_retry', { _refund: retry })
+  else if (payment) started = await asCaller(env, auth, 'fee_refund_begin', { _payment: payment, _reason: reason })
+  else if (order) started = await asCaller(env, auth, 'fee_refund_excess_begin', { _order: order, _reason: reason })
+  else throw new HttpError(400, 'Choose what to refund.')
+  if (started.method !== 'paystack') return { status: 'refunded', note: 'Recorded. The school returns this money itself.' }
+  if (!env('PAYSTACK_SECRET_KEY')) {
+    await one(env, `SELECT public.fee_refund_finish($1, false, NULL, 'Paystack is not configured on this server')`, [started.refund_id])
+    return { status: 'failed', error: 'Paystack is not configured on this server. The refund is recorded and can be retried.' }
+  }
+  try {
+    const res = await paystack(env, '/refund', { method: 'POST', body: JSON.stringify({ transaction: started.reference, amount: Math.round(Number(started.amount) * 100) }) })
+    await one(env, `SELECT public.fee_refund_finish($1, true, $2, NULL)`, [started.refund_id, res.data?.id == null ? null : String(res.data.id)])
+    return { status: 'refunded' }
+  } catch (e) {
+    await one(env, `SELECT public.fee_refund_finish($1, false, NULL, $2)`, [started.refund_id, e.message])
+    return { status: 'failed', error: e.message }
+  }
+}
+
+/** The scheduled job: reminders, event reminders, monitoring, stuck payments, then email. Needs CRON_SECRET. */
+export const runCron = async (env, headers) => {
+  const secret = env('CRON_SECRET')
+  if (!secret) throw new HttpError(503, 'The scheduled job is not set up: add CRON_SECRET.')
+  if (!safeEqual(String(headers.authorization ?? ''), `Bearer ${secret}`)) throw new HttpError(401, 'Not allowed.')
+  const out = {}
+  const step = async (name, fn) => { try { out[name] = await fn() } catch (e) { out[name] = { error: e.message }; console.error('[cron]', name, e.message) } }
+  await step('monitoring', async () => { await one(env, `SELECT public.audit_monitor_tick()`); return 'ok' })
+  await step('fee_reminders', async () => (await one(env, `SELECT public.fee_reminder_tick() AS n`)).n)
+  await step('event_reminders', async () => (await one(env, `SELECT public.calendar_reminder_tick() AS n`)).n)
+  await step('reconcile', () => reconcileOrders(env))
+  await step('outbox', () => runOutbox(env))
+  return out
+}

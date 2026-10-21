@@ -214,3 +214,38 @@ test('starting a school fee payment needs a signed-in caller and the Paystack ke
   await assert.rejects(() => feeInitialize(env, {}, { invoice: '00000000-0000-0000-0000-000000000000', amount: 10 }), (e) => e instanceof HttpError && e.status === 401)
   await assert.rejects(() => feeInitialize(env, { authorization: 'Bearer x' }, { invoice: 'nope', amount: 10 }), (e) => e instanceof HttpError && e.status === 400)
 })
+
+test('the scheduled job refuses callers without the secret, and is off until a secret is set', async () => {
+  const { runCron } = await import('./core.mjs')
+  await assert.rejects(() => runCron(makeEnv({ DATABASE_URL: url }), {}), (e) => e instanceof HttpError && e.status === 503)
+  const withSecret = makeEnv({ CRON_SECRET: 'cron-secret-for-selftest', DATABASE_URL: url })
+  await assert.rejects(() => runCron(withSecret, {}), (e) => e instanceof HttpError && e.status === 401)
+  await assert.rejects(() => runCron(withSecret, { authorization: 'Bearer wrong' }), (e) => e instanceof HttpError && e.status === 401)
+})
+
+test('the outbox does not claim or burn attempts when email is not configured', async () => {
+  const { runOutbox } = await import('./core.mjs')
+  const before = Number((await client.query(`SELECT coalesce(sum(attempts), 0) AS n FROM public.notification_outbox`)).rows[0].n)
+  const r = await runOutbox(makeEnv({ DATABASE_URL: url }))
+  assert.ok(r.skipped)
+  assert.equal(Number((await client.query(`SELECT coalesce(sum(attempts), 0) AS n FROM public.notification_outbox`)).rows[0].n), before)
+})
+
+test('queued email is sent once and a failure is recorded for retry', async () => {
+  const { runOutbox } = await import('./core.mjs')
+  await client.query(`UPDATE public.notification_outbox SET status = 'dead' WHERE status IN ('pending', 'failed')`)
+  const f = await feeFixture('Outbox School', 100)
+  await client.query(`INSERT INTO public.notification_outbox (school_id, to_email, subject, body, dedupe_key) VALUES ($1, 'a@selftest.invalid', 'Hello', 'Body', 'selftest-ok'), ($1, 'b@selftest.invalid', 'Fail', 'Body', 'selftest-fail')`, [f.school])
+  const mailEnv = makeEnv({ RESEND_API_KEY: 're_test', MAIL_FROM: 'Tech Oasis <noreply@selftest.invalid>', DATABASE_URL: url })
+  const real = globalThis.fetch
+  globalThis.fetch = async (u, init = {}) => {
+    if (String(u).includes('api.resend.com')) { const ok = !String(init.body).includes('b@selftest.invalid'); return { ok, status: ok ? 200 : 500, json: async () => ({}) } }
+    return real(u, init)
+  }
+  try {
+    const r = await runOutbox(mailEnv)
+    assert.equal(r.sent, 1); assert.equal(r.failed, 1)
+  } finally { globalThis.fetch = real }
+  const rows = (await client.query(`SELECT dedupe_key, status FROM public.notification_outbox WHERE dedupe_key LIKE 'selftest-%' ORDER BY dedupe_key`)).rows
+  assert.deepEqual(rows.map((x) => x.status), ['failed', 'sent'])
+})
