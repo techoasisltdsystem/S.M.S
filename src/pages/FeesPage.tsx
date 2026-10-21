@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { BellRing, ChevronLeft, ChevronRight, DollarSign, FileSpreadsheet, FilePlus2, Layers, Loader2, Plus, Search, Trash2, Users } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
+import OnlinePayments from "@/components/fees/OnlinePayments";
 import InvoiceDialog, { StatusChip, STATUS_LABEL } from "@/components/fees/InvoiceDialog";
 import { EmptyState, Panel } from "@/components/kit/Panel";
 import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState";
@@ -223,7 +224,7 @@ const StaffFees = ({ schoolId }: { schoolId: string }) => {
   return (
     <>
       <Tabs defaultValue="overview">
-        <TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="invoices">Invoices</TabsTrigger><TabsTrigger value="fees">Fee structures</TabsTrigger></TabsList>
+        <TabsList><TabsTrigger value="overview">Overview</TabsTrigger><TabsTrigger value="invoices">Invoices</TabsTrigger><TabsTrigger value="fees">Fee structures</TabsTrigger><TabsTrigger value="online">Online payments</TabsTrigger></TabsList>
 
         <TabsContent value="overview" className="mt-4 space-y-4">
           {summary.isLoading && <LoadingRows rows={3} />}
@@ -298,6 +299,8 @@ const StaffFees = ({ schoolId }: { schoolId: string }) => {
           </Panel>
         </TabsContent>
 
+        <TabsContent value="online" className="mt-4"><OnlinePayments schoolId={schoolId} /></TabsContent>
+
         <TabsContent value="fees" className="mt-4">
           <Panel title="Fee structures" icon={Layers}>
             {canInvoice && <div className="mb-3 flex justify-end"><Button onClick={() => setEditing("new")}><Plus className="mr-2 h-4 w-4" aria-hidden /> New fee</Button></div>}
@@ -354,7 +357,7 @@ const ParentFees = ({ schoolId, me }: { schoolId: string; me: string }) => {
           <>
             <p className="mb-3 text-sm">Total outstanding: <span className="font-semibold">{money(owed)}</span></p>
             <InvoiceTable rows={invoices.data} onOpen={setOpenId} showStudent={false} />
-            <p className="mt-3 text-xs text-muted-foreground">Payments are made at the school office or as the school directs; the school records them here and gives you a receipt.</p>
+            <p className="mt-3 text-xs text-muted-foreground">Open an invoice to pay online with Paystack. Payments made at the school office are recorded here by the school, and every confirmed payment has a receipt.</p>
           </>
         )}
       </Panel>

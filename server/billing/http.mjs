@@ -1,5 +1,5 @@
 // HTTP adapter shared by the Vercel functions and the Vite dev server.
-import { HttpError, config, demoPay, initialize, makeEnv, publicClaim, publicPricing, publicSignup, publicStatus, rateLimit, recoverRequest, recoverSend, verify, webhook, platformInvite, platformInviteInfo, platformInviteAccept } from './core.mjs'
+import { HttpError, config, demoPay, initialize, makeEnv, publicClaim, publicPricing, publicSignup, publicStatus, rateLimit, recoverRequest, recoverSend, verify, webhook, platformInvite, platformInviteInfo, platformInviteAccept, feeInitialize, feeVerify } from './core.mjs'
 
 const readRaw = async (req) => {
   if (req.rawBody) return Buffer.from(req.rawBody)
@@ -29,6 +29,8 @@ const routes = {
   'platform-invite': { method: 'POST', json: true, limit: 20, run: (env, req, body) => platformInvite(env, req.headers, body) },
   'platform-invite-info': { method: 'POST', json: true, limit: 30, run: (env, _req, body) => platformInviteInfo(env, body) },
   'platform-invite-accept': { method: 'POST', json: true, limit: 10, run: (env, req, body) => platformInviteAccept(env, req.headers, body) },
+  'fee-initialize': { method: 'POST', json: true, limit: 20, run: (env, req, body) => feeInitialize(env, req.headers, body) },
+  'fee-verify': { method: 'POST', json: true, limit: 60, run: (env, req, body) => feeVerify(env, req.headers, body) },
   webhook: { method: 'POST', raw: true, run: (env, req, _body, raw) => webhook(env, req.headers, raw) },
 }
 

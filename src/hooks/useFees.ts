@@ -9,7 +9,7 @@ export const METHODS: { value: string; label: string }[] = [
   { value: "cheque", label: "Cheque" },
   { value: "other", label: "Other" },
 ];
-export const methodLabel = (m: string) => METHODS.find((x) => x.value === m)?.label ?? m;
+export const methodLabel = (m: string) => (m === "paystack" ? "Paystack (online)" : METHODS.find((x) => x.value === m)?.label ?? m);
 
 export interface InvoiceRow {
   id: string; number: string; student_id: string; student_name: string; class_name: string | null; title: string;

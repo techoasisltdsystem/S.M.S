@@ -6,6 +6,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import PayOnline from "@/components/fees/PayOnline";
+import { useAuth } from "@/contexts/AuthContext";
 import { ErrorBox, LoadingRows, errMsg } from "@/components/students/QueryState";
 import { useToast } from "@/hooks/use-toast";
 import { METHODS, methodLabel, money, useFeeActions, useInvoice, type InvoiceStatus } from "@/hooks/useFees";
@@ -25,6 +27,7 @@ const today = () => new Date().toISOString().slice(0, 10);
 /** One invoice with its payments. Staff actions appear only if the database says the caller may do them. */
 const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string | null; onClose: () => void }) => {
   const { toast } = useToast();
+  const { user } = useAuth();
   const q = useInvoice(id);
   const { recordPayment, voidPayment, cancelInvoice } = useFeeActions(schoolId);
   const [pay, setPay] = useState({ amount: "", method: "cash", reference: "", paidOn: today(), note: "" });
@@ -95,6 +98,8 @@ const InvoiceDialog = ({ schoolId, id, onClose }: { schoolId: string; id: string
                 </ul>
               )}
             </div>
+
+            {user?.role === "parent" && d.invoice.status !== "cancelled" && d.invoice.balance > 0 && <PayOnline invoiceId={d.invoice.id} balance={d.invoice.balance} currency={cur} />}
 
             {d.can_record && d.invoice.status !== "cancelled" && d.invoice.balance > 0 && (
               <form className="space-y-3 rounded-lg border border-border p-3" onSubmit={(e) => { e.preventDefault(); void record(); }}>

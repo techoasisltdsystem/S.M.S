@@ -31,6 +31,7 @@ import MessagesPage from "./pages/MessagesPage";
 import NotificationsPage from "./pages/NotificationsPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import FeesPage from "./pages/FeesPage";
+import FeeReturnPage from "./pages/FeeReturnPage";
 import AuditMonitoringPage from "./pages/AuditMonitoringPage";
 import PlatformSubscriptionsPage from "./pages/PlatformSubscriptionsPage";
 import PlatformSupportPage from "./pages/PlatformSupportPage";
@@ -182,6 +183,7 @@ const AppRoutes = () => (
     <Route path="/students" element={<ProtectedRoute><StudentsPage /></ProtectedRoute>} />
     <Route path="/calendar" element={<ProtectedRoute><CalendarPage /></ProtectedRoute>} />
     <Route path="/fees" element={<ProtectedRoute><FeesPage /></ProtectedRoute>} />
+    <Route path="/fees/return" element={<ProtectedRoute><FeeReturnPage /></ProtectedRoute>} />
     <Route path="/classes" element={<ProtectedRoute><ClassesPage /></ProtectedRoute>} />
     <Route path="/timetable" element={<ProtectedRoute><TimetablePage /></ProtectedRoute>} />
     <Route path="/exams" element={<ProtectedRoute><ExamsPage /></ProtectedRoute>} />

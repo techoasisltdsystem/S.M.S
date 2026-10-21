@@ -139,3 +139,18 @@ Set these in `.env.local` (laptop) or the host's environment (never in the brows
 - **Support**: requests can be assigned to a platform administrator (`support_assign`).
 - **Recovery and backups**: the database is Neon Postgres; backups and point-in-time restore are provided and controlled in the Neon console, not from this app. To recover: restore the branch in Neon to the wanted time, point `DATABASE_URL` at it, redeploy. No destructive data controls were added to the console.
 - Not applicable / not built: discounts and promotions (no such billing model), help documentation, forced email verification on sign-in email change (Neon Auth flow not confirmed), session revocation of other devices (password change already signs others out on the local login).
+
+## School fee audit and online payments (migration `20261030160000_fee_online_payments.sql`)
+
+**Audit of what existed (Phase 3G):** `fee_structures`, `invoices` + `invoice_lines` (NUMERIC(12,2) money), `payments` (recorded/voided, sequential receipt numbers), `fee_counters`, permission-gated `record_payment` / `void_payment` / `cancel_invoice` / `generate_invoices` (no duplicates per structure+student), `send_fee_reminders`, parent and staff fee pages, PDF invoice/receipt, in-app `notifications`, guardian-only visibility (`is_guardian_of`), fee audit events. Academic years and terms exist as tables (one current each) with no management UI; `events` backs a simple calendar.
+
+**Added now:** parents pay an invoice (full or part) through Paystack.
+- `fee_payment_orders` (+ `fee_payment_events`): one row per attempt, amount/currency/invoice/payer fixed in the database; references `FEE-...`, separate from platform `billing_orders`.
+- `fee_pay_start` (caller must be a verified guardian; amount must be 0 < x <= balance from the ledger; invoice locked), server routes `/api/billing/fee-initialize` and `/fee-verify`, and the shared `/api/billing/webhook` (FEE references are routed to fee settlement).
+- `fee_settle` is server-only and idempotent: Paystack's own answer is fetched by the server; amount and currency must equal the order; only `success` writes a `payments` row (method `paystack`, linked by `order_id`, UNIQUE). Failed/abandoned/mismatched never touch the ledger. Two competing payments cannot over-collect: the second is recorded as `excess` and finance is notified (refund/credit decision is manual).
+- Receipt number comes from the existing counter; guardians, the student and finance staff get in-app notifications from the settled record; a notification failure cannot undo a payment.
+- UI: Pay online panel in the parent invoice dialog, `/fees/return` confirmation page, and an "Online payments" tab for finance (attempts, review list, excess).
+- Verified: 30+ new database checks, 4 server tests with a fake Paystack, and in Paystack TEST mode a real initialize and a real verify of an abandoned checkout (no ledger change). A completed card payment in Paystack test mode was NOT performed. No live charge has been made.
+- Rollback: `DROP TABLE fee_payment_orders CASCADE` after removing `payments.order_id`, restore the old `payments_method_check`; no existing rows are changed.
+
+**Not built yet (gaps against the full spec):** academic year/term management screens and lifecycle states, per-term fee due dates and reminder schedules, fee structures by programme/student group/scholarship, discounts and waivers ledger, refunds (only void), student self-payment, email delivery of confirmations and reminders (in-app only), notification centre filters/retry state, role calendars with visibility/publish/cancel, reconciliation against Paystack's transaction list, collection reports by term/class/category, scheduled reminders for fees. 

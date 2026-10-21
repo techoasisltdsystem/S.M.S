@@ -183,6 +183,10 @@ export const webhook = async (env, headers, rawBody) => {
   if (event?.event === 'charge.success' && reference) {
     // Settling is idempotent, so a repeated delivery is harmless. The event is recorded only after it
     // was handled: if Paystack was unreachable now, its retry must be processed, not skipped.
+    if (isFeeReference(reference)) {
+      const fee = await feeSettleFromGateway(env, reference, 'webhook')
+      return { received: true, status: fee.status }
+    }
     const result = await settleFromGateway(env, reference, 'webhook', null, true, headers)
     const fresh = await one(env, `SELECT public.billing_record_event($1, 'webhook', $2, $3, true, $4, '{}') AS fresh`, [reference, event.event, externalId, result.status ?? 'handled'])
     return fresh.fresh ? { received: true } : { received: true, duplicate: true }
@@ -388,4 +392,64 @@ export const platformInviteAccept = async (env, headers, { token, password }) =>
   try { await one(env, `SELECT public.platform_invite_accept($1, $2)`, [hash, userId]) }
   catch (e) { console.error('[platform-invite]', e.message); throw new HttpError(409, 'Your login was created but the invitation could not be completed. Ask for a new invitation.') }
   return { ok: true, email: inv.email }
+}
+
+// ---------------------------------------------------------------------------------------------
+// School fee payments. These are the school's money, kept apart from platform subscription orders:
+// separate tables, separate references (FEE-...), and they settle into the school's own fee ledger.
+// The amount, invoice and payer are fixed in the database when the order is created; the browser
+// only ever names an invoice and an amount, and the database decides if that is allowed.
+// ---------------------------------------------------------------------------------------------
+const isFeeReference = (r) => typeof r === 'string' && /^FEE-[A-Z0-9]{8,32}$/.test(r)
+
+export const feeInitialize = async (env, headers, { invoice, amount }) => {
+  if (!env('PAYSTACK_SECRET_KEY')) throw new HttpError(503, 'Online payment is not switched on for this site yet. Please pay at the school office.')
+  if (typeof invoice !== 'string' || !/^[0-9a-f-]{36}$/.test(invoice)) throw new HttpError(400, 'Choose an invoice to pay.')
+  const n = Number(amount)
+  if (!Number.isFinite(n) || n <= 0 || n > 10000000) throw new HttpError(400, 'Enter a valid amount.')
+  const started = await asCaller(env, headers.authorization, 'fee_pay_start', { _invoice: invoice, _amount: n })
+  const order = (await one(env, `SELECT public.fee_order_for_server($1) AS o`, [started.reference])).o
+  const base = appUrl(env, headers)
+  let body
+  try {
+    body = await paystack(env, '/transaction/initialize', {
+    method: 'POST',
+    body: JSON.stringify({
+      email: order.email, amount: Number(order.amount_minor), currency: order.currency, reference: order.reference,
+      callback_url: `${base}/fees/return?reference=${encodeURIComponent(order.reference)}`,
+      channels: (env('PAYSTACK_CHANNELS') || 'card,mobile_money,bank_transfer').split(',').map((c) => c.trim()).filter(Boolean),
+      metadata: { kind: 'school_fee', order: order.reference, custom_fields: [] },
+    }),
+  })
+  } catch (e) {
+    // The attempt never reached Paystack: close it so it does not sit around as a pending payment.
+    await one(env, `SELECT public.fee_settle($1, $2::jsonb)`, [order.reference, JSON.stringify({ status: 'failed', gateway_response: String(e.message).slice(0, 200) })])
+    throw e
+  }
+  await one(env, `SELECT public.fee_mark_initialized($1, $2)`, [order.reference, body.data.access_code])
+  await one(env, `SELECT public.fee_record_event($1, 'initialize', 'initialized', '{}')`, [order.reference])
+  return { reference: order.reference, url: body.data.authorization_url }
+}
+
+/** Ask Paystack what happened, then let the database settle. Used by the return page, the webhook and reconciliation. */
+export const feeSettleFromGateway = async (env, reference, source) => {
+  if (!isFeeReference(reference)) return { status: 'unknown' }
+  const order = (await one(env, `SELECT public.fee_order_for_server($1) AS o`, [reference])).o
+  if (!order) { await one(env, `SELECT public.fee_record_event($1, $2, 'unknown_reference', '{}')`, [reference, source]); return { status: 'unknown' } }
+  if (order.status === 'paid') return { status: 'paid' }
+  const verify = await paystack(env, `/transaction/verify/${encodeURIComponent(reference)}`)
+  const summary = summarise(verify.data)
+  const result = (await one(env, `SELECT public.fee_settle($1, $2::jsonb) AS r`, [reference, JSON.stringify(summary)])).r
+  await one(env, `SELECT public.fee_record_event($1, $2, $3, $4::jsonb)`,
+    [reference, source, result.status, JSON.stringify({ gateway_status: summary.status, amount_minor: summary.amount_minor, currency: summary.currency, channel: summary.channel })])
+  return result
+}
+
+/** The return page asks; the answer comes from Paystack, and only the payer or finance staff may ask. */
+export const feeVerify = async (env, headers, { reference }) => {
+  if (!isFeeReference(reference)) throw new HttpError(400, 'That payment reference is not valid.')
+  await asCaller(env, headers.authorization, 'fee_pay_status', { _reference: reference })
+  if (!env('PAYSTACK_SECRET_KEY')) throw new HttpError(503, 'Online payment is not configured.')
+  await feeSettleFromGateway(env, reference, 'verify')
+  return asCaller(env, headers.authorization, 'fee_pay_status', { _reference: reference })
 }
