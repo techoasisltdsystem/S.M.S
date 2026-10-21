@@ -1,6 +1,6 @@
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Calendar, DollarSign, ClipboardList,
-  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, type LucideIcon,
+  Library, Settings, UserCheck, Building2, History, Megaphone, School, MessageSquare, ShieldCheck, ShieldAlert, CreditCard, LifeBuoy, Activity, CalendarClock, Tags, Receipt, UserCog, HeartPulse, KeyRound, type LucideIcon,
 } from "lucide-react";
 import type { UserRole } from "@/contexts/AuthContext";
 
@@ -44,6 +44,14 @@ export const NAV: Record<UserRole, NavGroup[]> = {
         { label: "Administrative activity", icon: Activity, path: "/platform/activity" },
         { label: "Support", icon: LifeBuoy, path: "/platform/support" },
         { label: "Platform settings", icon: Settings, path: "/platform/settings" },
+      ],
+    },
+    {
+      title: "Administration",
+      items: [
+        { label: "Super Admin team", icon: UserCog, path: "/platform/admins" },
+        { label: "System health", icon: HeartPulse, path: "/platform/health" },
+        { label: "My account", icon: KeyRound, path: "/platform/profile" },
       ],
     },
   ],

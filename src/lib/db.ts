@@ -344,3 +344,13 @@ export const uploadSchoolAsset = async (file: File, schoolId: string, name: stri
   const { data } = db.storage.from('school-assets').getPublicUrl(path)
   return data.publicUrl
 }
+
+/** The signed-in person's token as an Authorization header, for the few server routes that check who is calling. */
+export const authHeader = async (): Promise<string | null> => {
+  const token = neon
+    ? (await neon.auth.getSession()).data.session?.access_token
+    : dbProvider === 'local'
+      ? readLocalSession()?.access_token
+      : (await db.auth.getSession()).data.session?.access_token
+  return token ? `Bearer ${token}` : null
+}

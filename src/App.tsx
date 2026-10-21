@@ -34,6 +34,8 @@ import FeesPage from "./pages/FeesPage";
 import AuditMonitoringPage from "./pages/AuditMonitoringPage";
 import PlatformSubscriptionsPage from "./pages/PlatformSubscriptionsPage";
 import PlatformSupportPage from "./pages/PlatformSupportPage";
+import PlatformTeamPage from "./pages/PlatformTeamPage";
+import PlatformHealthPage from "./pages/PlatformHealthPage";
 import PlatformActivityPage from "./pages/PlatformActivityPage";
 import SchoolSupportPage from "./pages/SchoolSupportPage";
 import RolePermissionsPage from "./pages/RolePermissionsPage";
@@ -153,6 +155,8 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
+    <Route path="/platform/admins" element={<ProtectedRoute platform><PlatformTeamPage /></ProtectedRoute>} />
+    <Route path="/platform/health" element={<ProtectedRoute platform><PlatformHealthPage /></ProtectedRoute>} />
     <Route path="/platform/profile" element={<ProtectedRoute platform><ProfilePage /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
     <Route path="/assignments" element={<ProtectedRoute><AssignmentsPage /></ProtectedRoute>} />
