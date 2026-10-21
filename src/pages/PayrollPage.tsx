@@ -18,6 +18,7 @@ import { useToast } from "@/hooks/use-toast";
 import { money } from "@/hooks/useFees";
 import { relative } from "@/hooks/useSchoolData";
 import { payslipPdf } from "@/lib/reports";
+import TaxSettings from "@/components/payroll/TaxSettings";
 import { rpc } from "@/lib/rpc";
 import { cn } from "@/lib/utils";
 
@@ -118,10 +119,28 @@ const PayrollPage = () => {
   const [search, setSearch] = useState("");
   const download = (s: Slip, period?: string) => payslipPdf({ ...s, period: s.period ?? period ?? "", school: s.school ?? user!.schoolName });
   const runPeriod = (runs.data ?? []).find((r) => r.id === runView)?.period;
+  // The bank file is the only place full account numbers leave the database; the export is logged.
+  const bankFile = async (r: Run) => {
+    try {
+      const rows = await rpc<{ staff: string; bank_name: string | null; account_name: string; account_number: string | null; amount: number; currency: string; payslip: string; narration: string }[]>("payroll_bank_file", { _run: r.id });
+      const missing = rows.filter((x) => !x.account_number).map((x) => x.staff);
+      const cell = (v: unknown) => { const t = String(v ?? "").replace(/^[=+\-@\t]/, "'$&"); return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t; };
+      const csv = [["Beneficiary", "Bank", "Account name", "Account number", "Amount", "Currency", "Reference", "Narration"],
+        ...rows.filter((x) => x.account_number).map((x) => [x.staff, x.bank_name, x.account_name, x.account_number, Number(x.amount).toFixed(2), x.currency, x.payslip, x.narration])]
+        .map((l) => l.map(cell).join(",")).join("\r\n");
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
+      a.download = `salary-payments-${r.period}.csv`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast({ title: "Bank file downloaded", description: missing.length ? `Left out (no bank account): ${missing.join(", ")}. Pay them separately.` : `${rows.length} payment(s). Upload it to your bank's bulk payment service.` });
+      refresh();
+    } catch (e) { toast({ title: "No bank file", description: errMsg(e), variant: "destructive" }); }
+  };
 
   const tabs = officer ? [
     { to: "/payroll", label: "Dashboard" }, ...(manage ? [{ to: "/payroll?tab=profiles", label: "Salary Profile" }] : []), { to: "/payroll?tab=runs", label: "Payroll" },
-    { to: "/payroll?tab=payslips", label: "Payslips" }, { to: "/payroll?tab=advances", label: "Salary Advance" }, ...(manage ? [{ to: "/payroll?tab=items", label: "Allowances & Deductions" }] : []), { to: "/payroll?tab=audit", label: "Audit" },
+    { to: "/payroll?tab=payslips", label: "Payslips" }, { to: "/payroll?tab=advances", label: "Salary Advance" }, ...(manage ? [{ to: "/payroll?tab=items", label: "Allowances & Deductions" }] : []), { to: "/payroll?tab=tax", label: "Tax & SSNIT" }, { to: "/payroll?tab=audit", label: "Audit" },
   ] : [{ to: "/payroll", label: "My Payslips" }, { to: "/payroll?tab=advances", label: "Salary Advance" }];
 
   const d = dash.data;
@@ -219,6 +238,7 @@ const PayrollPage = () => {
                       {r.can_approve && <Button size="sm" disabled={act.isPending} onClick={() => { if (window.confirm(`Approve ${monthLabel(r.period)} payroll: ${money(r.net)} net to ${r.staff} staff?`)) act.mutate({ fn: "payroll_run_approve", args: { _run: r.id }, ok: "Payroll approved" }); }}><BadgeCheck className="mr-1 h-4 w-4" aria-hidden /> Approve</Button>}
                       {r.status === "calculated" && !r.can_approve && <span className="mx-2 text-xs text-muted-foreground">Needs another approver</span>}
                       {manage && r.status === "approved" && <Button size="sm" onClick={() => { const ref = window.prompt("Bank transfer or batch reference (optional)", ""); if (ref !== null) act.mutate({ fn: "payroll_run_mark_paid", args: { _run: r.id, _reference: ref }, ok: "Payroll marked paid; staff can see their payslips" }); }}>Mark paid</Button>}
+                      {manage && (r.status === "approved" || r.status === "paid") && <Button size="sm" variant="outline" onClick={() => void bankFile(r)}><Download className="mr-1 h-4 w-4" aria-hidden /> Bank file</Button>}
                       {r.staff > 0 && <Button size="sm" variant="ghost" onClick={() => setRunView(r.id)}>Payslips</Button>}
                       {manage && (r.status === "draft" || r.status === "calculated") && <Button size="sm" variant="ghost" className="text-destructive" onClick={() => { if (window.confirm("Cancel this payroll run?")) act.mutate({ fn: "payroll_run_cancel", args: { _run: r.id }, ok: "Payroll cancelled" }); }}>Cancel</Button>}
                     </td>
@@ -226,7 +246,7 @@ const PayrollPage = () => {
                 ))}</tbody></table>
             )}
           </TableCard>
-          <p className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The person who creates or calculates a payroll cannot approve it. Marking a payroll paid records that the bank transfer was made; the system does not move money itself.</p>
+          <p className="flex items-start gap-2 rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden /> The person who creates or calculates a payroll cannot approve it. Once approved, download the bank file (CSV) and upload it to your bank's bulk payment service, then mark the payroll paid with the bank's batch reference.</p>
         </div>
       )}
 
@@ -273,6 +293,9 @@ const PayrollPage = () => {
           )}
         </TableCard>
       )}
+
+      {/* ---------- tax ---------- */}
+      {officer && tab === "tax" && <TaxSettings schoolId={sid} canEdit={manage} runs={runs.data ?? []} />}
 
       {/* ---------- audit ---------- */}
       {officer && tab === "audit" && (

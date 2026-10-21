@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, BookOpen, CheckCircle2, ClipboardCheck, Clock, FilePlus2, HelpCircle, ListChecks, Loader2, Percent, Play, Plus, Square, Trash2, Users } from "lucide-react";
+import { AlertTriangle, BookOpen, ImagePlus, Upload, CheckCircle2, ClipboardCheck, Clock, FilePlus2, HelpCircle, ListChecks, Loader2, Percent, Play, Plus, Square, Trash2, Users } from "lucide-react";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import KitStat from "@/components/kit/KitStat";
 import BarChart from "@/components/kit/BarChart";
@@ -18,6 +18,8 @@ import { useToast } from "@/hooks/use-toast";
 import { useAssignments, useClasses, useSubjects } from "@/hooks/useSchoolData";
 import { KIND_LABEL, fmtDT, mmss, useCbtDash, useCbtTests, useLive, useQuestions, type CbtTest, type QKind, type Question } from "@/hooks/useCbt";
 import { rpc } from "@/lib/rpc";
+import MathText from "@/components/cbt/MathText";
+import ImportQuestions from "@/components/cbt/ImportQuestions";
 
 const sel = "h-10 w-full rounded-md border border-input bg-background px-3 text-sm";
 const PHASE: Record<string, { label: string; tone: "grey" | "blue" | "green" | "purple" }> = { draft: { label: "Draft", tone: "grey" }, upcoming: { label: "Upcoming", tone: "blue" }, live: { label: "Live", tone: "green" }, closed: { label: "Closed", tone: "purple" } };
@@ -84,7 +86,7 @@ const LiveMonitor = ({ test }: { test: CbtTest }) => {
 };
 
 // ------------------------------------------------------------------ question editor
-const blankQ = { id: null as string | null, subject: "", kind: "mcq" as QKind, prompt: "", options: ["", "", "", ""], correctIdx: 0, tf: "true", accepted: "", marks: "1", difficulty: "medium" };
+const blankQ = { id: null as string | null, image: null as string | null, subject: "", kind: "mcq" as QKind, prompt: "", options: ["", "", "", ""], correctIdx: 0, tf: "true", accepted: "", marks: "1", difficulty: "medium" };
 const QuestionDialog = ({ sid, open, onClose, editing, subjects }: { sid: string; open: boolean; onClose: () => void; editing: Question | null; subjects: { id: string; name: string }[] }) => {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -93,15 +95,24 @@ const QuestionDialog = ({ sid, open, onClose, editing, subjects }: { sid: string
   const [error, setError] = useState<string | null>(null);
   if (open && seed !== (editing ?? "new")) {
     setSeed(editing ?? "new"); setError(null);
-    setF(editing ? { id: editing.id, subject: editing.subject_id, kind: editing.kind, prompt: editing.prompt, options: editing.kind === "mcq" ? [...editing.options] : ["", "", "", ""],
+    setF(editing ? { id: editing.id, image: editing.image, subject: editing.subject_id, kind: editing.kind, prompt: editing.prompt, options: editing.kind === "mcq" ? [...editing.options] : ["", "", "", ""],
       correctIdx: editing.kind === "mcq" ? Number(editing.correct) : 0, tf: editing.kind === "true_false" ? String(editing.correct) : "true",
       accepted: editing.kind === "short" ? (editing.correct as string[]).join(", ") : "", marks: String(editing.marks), difficulty: editing.difficulty } : { ...blankQ, subject: subjects[0]?.id ?? "" });
   }
+  const pickImage = (file: File | undefined) => {
+    if (!file) return;
+    if (!/^image\/(png|jpeg|gif|webp)$/.test(file.type)) { setError("Use a PNG, JPEG, GIF or WebP picture."); return; }
+    if (file.size > 500 * 1024) { setError("The picture must be under 500 KB. Crop or compress it first."); return; }
+    const r = new FileReader();
+    r.onload = () => { setError(null); setF((x) => ({ ...x, image: String(r.result) })); };
+    r.readAsDataURL(file);
+  };
   const save = useMutation({
-    mutationFn: () => {
+    mutationFn: async () => {
       const opts = f.options.map((o) => o.trim()).filter(Boolean);
       const correct = f.kind === "mcq" ? f.correctIdx : f.kind === "true_false" ? f.tf === "true" : f.kind === "short" ? f.accepted.split(",").map((a) => a.trim()).filter(Boolean) : null;
-      return rpc("cbt_question_save", { _school: sid, _id: f.id, _subject: f.subject, _kind: f.kind, _prompt: f.prompt, _options: f.kind === "mcq" ? opts : [], _correct: correct, _marks: Number(f.marks), _difficulty: f.difficulty });
+      const id = await rpc<string>("cbt_question_save", { _school: sid, _id: f.id, _subject: f.subject, _kind: f.kind, _prompt: f.prompt, _options: f.kind === "mcq" ? opts : [], _correct: correct, _marks: Number(f.marks), _difficulty: f.difficulty });
+      if (f.image !== (editing?.image ?? null)) await rpc("cbt_question_set_image", { _id: id, _image: f.image });
     },
     onSuccess: () => { toast({ title: "Question saved" }); void qc.invalidateQueries({ queryKey: ["cbt-questions"] }); setSeed(null); onClose(); },
     onError: (e) => setError(errMsg(e)),
@@ -116,7 +127,12 @@ const QuestionDialog = ({ sid, open, onClose, editing, subjects }: { sid: string
               <div className="space-y-1.5"><Label htmlFor="q-subj">Subject</Label><select id="q-subj" className={sel} value={f.subject} onChange={(e) => setF({ ...f, subject: e.target.value })}>{subjects.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
               <div className="space-y-1.5"><Label htmlFor="q-kind">Type</Label><select id="q-kind" className={sel} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value as QKind })}>{Object.entries(KIND_LABEL).map(([k, v]) => <option key={k} value={k}>{v}</option>)}</select></div>
             </div>
-            <div className="space-y-1.5"><Label htmlFor="q-prompt">Question</Label><Textarea id="q-prompt" rows={3} value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} /></div>
+            <div className="space-y-1.5"><Label htmlFor="q-prompt">Question</Label><Textarea id="q-prompt" rows={3} value={f.prompt} onChange={(e) => setF({ ...f, prompt: e.target.value })} />
+              <p className="text-xs text-muted-foreground">Write equations between dollar signs, for example $x^2 + 3x = 10$ or {"$\\frac{1}{2}$"}.</p>
+              {f.prompt.includes("$") && <div className="rounded-md border border-border bg-muted/30 p-2 text-sm"><span className="mb-1 block text-xs text-muted-foreground">Preview</span><MathText text={f.prompt} /></div>}</div>
+            <div className="space-y-1.5"><span className="text-sm font-medium">Picture (optional)</span>
+              {f.image ? <div className="flex items-start gap-3"><img src={f.image} alt="Question picture" className="max-h-40 rounded-md border border-border object-contain" /><Button type="button" size="sm" variant="ghost" className="text-destructive" onClick={() => setF({ ...f, image: null })}>Remove</Button></div>
+                : <label className="flex cursor-pointer items-center gap-2 rounded-md border border-dashed border-border p-3 text-sm text-muted-foreground hover:bg-muted/40"><ImagePlus className="h-4 w-4" aria-hidden /> Add a diagram, graph or photo (under 500 KB)<input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="sr-only" onChange={(e) => pickImage(e.target.files?.[0])} /></label>}</div>
             {f.kind === "mcq" && (
               <fieldset className="space-y-2"><legend className="text-sm font-medium">Options (select the correct one)</legend>
                 {f.options.map((o, i) => (
@@ -187,7 +203,7 @@ const TestDialog = ({ sid, open, onClose, classes, subjects, questions }: { sid:
                 {pool.map((q) => (
                   <li key={q.id}><label className="flex items-start gap-2 rounded-md p-1.5 text-sm hover:bg-muted/50">
                     <input type="checkbox" className="mt-1" checked={f.picked.includes(q.id)} onChange={(e) => setF({ ...f, picked: e.target.checked ? [...f.picked, q.id] : f.picked.filter((x) => x !== q.id) })} />
-                    <span className="min-w-0"><span className="line-clamp-2">{q.prompt}</span><span className="text-xs text-muted-foreground">{KIND_LABEL[q.kind]} · {q.marks} mark{Number(q.marks) === 1 ? "" : "s"}</span></span>
+                    <span className="min-w-0"><span className="line-clamp-2"><MathText text={q.prompt} /></span><span className="text-xs text-muted-foreground">{q.image ? "Picture · " : ""}{KIND_LABEL[q.kind]} · {q.marks} mark{Number(q.marks) === 1 ? "" : "s"}</span></span>
                   </label></li>
                 ))}
               </ul>
@@ -207,7 +223,7 @@ const TestDialog = ({ sid, open, onClose, classes, subjects, questions }: { sid:
 
 // ------------------------------------------------------------------ grading
 interface Review { attempt_id: string; student: string; status: string; score: number; max_score: number; violations: number; essay_scores: Record<string, number>;
-  questions: { id: string; kind: QKind; prompt: string; options: string[]; correct: unknown; marks: number; answer: unknown }[] }
+  questions: { id: string; kind: QKind; prompt: string; options: string[]; correct: unknown; marks: number; answer: unknown; image?: string | null }[] }
 const ReviewDialog = ({ attempt, onClose }: { attempt: string | null; onClose: () => void }) => {
   const { toast } = useToast();
   const qc = useQueryClient();
@@ -232,9 +248,10 @@ const ReviewDialog = ({ attempt, onClose }: { attempt: string | null; onClose: (
             <ol className="space-y-3">
               {r.questions.map((qq, i) => (
                 <li key={qq.id} className="rounded-lg border border-border p-3 text-sm">
-                  <p className="font-medium">{i + 1}. {qq.prompt} <span className="text-xs text-muted-foreground">({qq.marks} marks)</span></p>
-                  <p className="mt-1"><span className="text-muted-foreground">Answer:</span> <span className="whitespace-pre-wrap">{shown(qq)}</span></p>
-                  {key(qq) !== null && <p className="text-xs text-success">Key: {key(qq)}</p>}
+                  <p className="font-medium">{i + 1}. <MathText text={qq.prompt} /> <span className="text-xs text-muted-foreground">({qq.marks} marks)</span></p>
+                  {qq.image && <img src={qq.image} alt={`Picture for question ${i + 1}`} className="mt-2 max-h-48 rounded-md border border-border object-contain" />}
+                  <p className="mt-1"><span className="text-muted-foreground">Answer:</span> <MathText text={shown(qq)} /></p>
+                  {key(qq) !== null && <p className="text-xs text-success">Key: <MathText text={key(qq)!} /></p>}
                   {qq.kind === "essay" && (
                     <div className="mt-2 flex items-center gap-2">
                       <Input className="h-8 w-24" inputMode="decimal" aria-label="Essay score" placeholder={`/ ${qq.marks}`} value={scores[qq.id] ?? (r.essay_scores[qq.id] !== undefined ? String(r.essay_scores[qq.id]) : "")} onChange={(e) => setScores({ ...scores, [qq.id]: e.target.value })} />
@@ -292,6 +309,7 @@ const CbtPage = () => {
   const mySubjects = (subjects.data ?? []).filter((s) => manager || mine.some((a) => a.subject_id === s.id));
   const [qOpen, setQOpen] = useState<{ q: Question | null } | null>(null);
   const [tOpen, setTOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [review, setReview] = useState<string | null>(null);
   const all = tests.data ?? [];
   const live = all.filter((t) => t.can_manage && t.phase === "live");
@@ -341,6 +359,7 @@ const CbtPage = () => {
   return (
     <DashboardLayout>
       <PageHeader title="CBT" tabs={[{ to: "/cbt", label: "Dashboard" }, { to: "/cbt?tab=bank", label: "Question Bank" }, { to: "/cbt?tab=tests", label: "Tests" }, { to: "/cbt?tab=grading", label: "Grading" }]}>
+        {tab === "bank" && <Button variant="outline" onClick={() => setImportOpen(true)}><Upload className="mr-1 h-4 w-4" aria-hidden /> Import</Button>}
         {tab === "bank" && <Button onClick={() => setQOpen({ q: null })}><Plus className="mr-1 h-4 w-4" aria-hidden /> Add question</Button>}
         {tab === "tests" && <Button onClick={() => setTOpen(true)}><FilePlus2 className="mr-1 h-4 w-4" aria-hidden /> Create test</Button>}
       </PageHeader>
@@ -374,7 +393,7 @@ const CbtPage = () => {
           {questions.isLoading ? <div className="p-5"><LoadingRows rows={4} /></div> : (questions.data ?? []).length === 0 ? <div className="p-5"><EmptyState icon={HelpCircle} title="No questions yet" text="Add multiple-choice, true/false, short-answer or essay questions." /></div> : (
             <table className="w-full"><thead><tr><th className={th}>Question</th><th className={th}>Subject</th><th className={th}>Type</th><th className={th}>Marks</th><th className={th}>Used</th><th className={th} /></tr></thead>
               <tbody className="divide-y divide-border">{questions.data!.map((q) => (
-                <tr key={q.id}><td className={`${td} max-w-md`}><span className="line-clamp-2">{q.prompt}</span><span className="text-xs capitalize text-muted-foreground">{q.difficulty}</span></td>
+                <tr key={q.id}><td className={`${td} max-w-md`}><span className="line-clamp-2"><MathText text={q.prompt} /></span><span className="text-xs capitalize text-muted-foreground">{q.difficulty}{q.image ? " · has picture" : ""}</span></td>
                   <td className={td}>{q.subject}</td><td className={td}><StatusPill tone="purple">{KIND_LABEL[q.kind]}</StatusPill></td><td className={td}>{q.marks}</td><td className={td}>{q.used}</td>
                   <td className={`${td} whitespace-nowrap text-right`}><Button size="sm" variant="ghost" onClick={() => setQOpen({ q })}>Edit</Button>
                     <Button size="sm" variant="ghost" className="text-destructive" aria-label="Remove question" onClick={() => { if (window.confirm("Remove this question from the bank? Tests already set keep their copy.")) act.mutate({ fn: "cbt_question_archive", args: { _id: q.id }, ok: "Question removed" }); }}><Trash2 className="h-4 w-4" /></Button></td></tr>
@@ -415,6 +434,7 @@ const CbtPage = () => {
       <QuestionDialog sid={sid} open={!!qOpen} editing={qOpen?.q ?? null} onClose={() => setQOpen(null)} subjects={mySubjects} />
       {tOpen && <TestDialog sid={sid} open={tOpen} onClose={() => setTOpen(false)} classes={myClasses} subjects={mySubjects} questions={questions.data ?? []} />}
       <ReviewDialog attempt={review} onClose={() => setReview(null)} />
+      {importOpen && <ImportQuestions sid={sid} subjects={mySubjects} onClose={() => setImportOpen(false)} />}
     </DashboardLayout>
   );
 };

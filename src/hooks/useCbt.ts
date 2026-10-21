@@ -4,7 +4,7 @@ import { rpc } from "@/lib/rpc";
 export type QKind = "mcq" | "true_false" | "short" | "essay";
 export const KIND_LABEL: Record<QKind, string> = { mcq: "Multiple choice", true_false: "True / false", short: "Short answer", essay: "Essay" };
 
-export interface Question { id: string; subject_id: string; subject: string; kind: QKind; prompt: string; options: string[]; correct: unknown; marks: number; difficulty: string; created_by: string | null; mine: boolean; used: number }
+export interface Question { id: string; subject_id: string; subject: string; kind: QKind; prompt: string; options: string[]; correct: unknown; marks: number; difficulty: string; created_by: string | null; mine: boolean; used: number; image: string | null }
 export interface CbtTest {
   id: string; title: string; class_name: string; subject: string; starts_at: string; ends_at: string; duration_min: number; status: "draft" | "published" | "closed";
   phase: "draft" | "upcoming" | "live" | "closed"; questions: number; total_marks: number; results_released: boolean; can_manage: boolean; attempts: number; submitted: number;

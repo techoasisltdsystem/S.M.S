@@ -8,11 +8,12 @@ import { errMsg } from "@/components/students/QueryState";
 import { mmss, type QKind } from "@/hooks/useCbt";
 import { rpc } from "@/lib/rpc";
 import { cn } from "@/lib/utils";
+import MathText from "@/components/cbt/MathText";
 
 interface Payload {
   attempt_id: string; status: string; deadline: string; server_now: string; answers: Record<string, unknown>; violations: number;
   test: { id: string; title: string; instructions: string | null; duration_min: number; max_violations: number; subject: string; class: string };
-  questions: { id: string; kind: QKind; prompt: string; options: string[]; marks: number }[];
+  questions: { id: string; kind: QKind; prompt: string; options: string[]; marks: number; image?: string | null }[];
 }
 type Kind = "tab_switch" | "window_blur" | "copy" | "paste" | "fullscreen_exit" | "right_click";
 const KIND_TEXT: Record<Kind, string> = { tab_switch: "You left the test tab", window_blur: "The test window lost focus", copy: "Copying is not allowed", paste: "Pasting is not allowed", fullscreen_exit: "You left full screen", right_click: "Right-click is disabled" };
@@ -140,11 +141,12 @@ const CbtTakePage = () => {
         <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
           {idx === 0 && p.test.instructions && <p className="mb-4 rounded-lg bg-muted/50 p-3 text-sm">{p.test.instructions}</p>}
           <p className="text-xs font-medium text-muted-foreground">Question {idx + 1} of {p.questions.length} · {q.marks} mark{Number(q.marks) === 1 ? "" : "s"}</p>
-          <h2 className="mt-2 whitespace-pre-wrap text-lg font-medium">{q.prompt}</h2>
+          <h2 className="mt-2 text-lg font-medium"><MathText text={q.prompt} /></h2>
+          {q.image && <img src={q.image} alt={`Picture for question ${idx + 1}`} draggable={false} className="mt-3 max-h-80 rounded-lg border border-border object-contain" />}
           <div className="mt-5 space-y-2">
             {q.kind === "mcq" && q.options.map((o, i) => (
               <label key={i} className={cn("flex cursor-pointer items-center gap-3 rounded-xl border p-3 transition-colors", answers[q.id] === i ? "border-primary bg-primary/5" : "border-border hover:bg-muted/40")}>
-                <input type="radio" name={q.id} checked={answers[q.id] === i} onChange={() => set(q.id, i)} /> <span>{o}</span>
+                <input type="radio" name={q.id} checked={answers[q.id] === i} onChange={() => set(q.id, i)} /> <MathText text={o} />
               </label>
             ))}
             {q.kind === "true_false" && [true, false].map((v) => (
