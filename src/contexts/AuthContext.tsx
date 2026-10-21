@@ -3,6 +3,7 @@ import {
   AuthError,
   currentAuthUserId,
   db,
+  dbProvider,
   mfaState,
   onAuthChange,
   setAuditSchool,
@@ -86,6 +87,9 @@ interface AuthContextType {
   /** Set while an administrator still has to pass the second factor. */
   mfa: MfaState | null;
   refreshMfa: () => Promise<void>;
+  /** True when a manager gave this person a temporary password; they must choose their own first. */
+  mustChangePassword: boolean;
+  clearMustChangePassword: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -179,6 +183,15 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     remember(null);
     await refreshMfa();
   }, [refreshMfa]);
+
+  // A temporary password set by a manager has to be replaced before anything else.
+  const [mustChange, setMustChange] = useState(false);
+  useEffect(() => {
+    if (!user || dbProvider !== "local") { setMustChange(false); return; }
+    let live = true;
+    db.rpc("local_must_change_password" as never).then(({ data }) => { if (live) setMustChange(data === true); });
+    return () => { live = false; };
+  }, [user]);
 
   // Lets the data layer say which school an audit failure belongs to.
   useEffect(() => {
@@ -275,6 +288,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         login,
         platformLogin,
+        mustChangePassword: mustChange,
+        clearMustChangePassword: () => setMustChange(false),
         logout,
         switchMembership,
         can,

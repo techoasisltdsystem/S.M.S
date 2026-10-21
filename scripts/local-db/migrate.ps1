@@ -28,6 +28,7 @@ foreach ($m in $migrations) {
 $env:LOCAL_JWT_SECRET = Get-OrAddEnvSecret 'LOCAL_JWT_SECRET'
 try {
   Invoke-Psql $url @('-c', '\getenv jwt_secret LOCAL_JWT_SECRET', '-f', "$PSScriptRoot\local-auth.sql")
+  Invoke-Psql $url @('-f', "$PSScriptRoot\login-management.sql")
 } finally {
   Remove-Item Env:LOCAL_JWT_SECRET
 }
