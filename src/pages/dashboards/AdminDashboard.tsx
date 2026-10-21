@@ -1,8 +1,10 @@
 import { Link } from "react-router-dom";
-import { AlertTriangle, BookOpen, Calendar, DollarSign, GraduationCap, History, Megaphone, School, Sparkles, TrendingUp, UserCheck, Users, UserPlus, ClipboardList, Wallet } from "lucide-react";
+import { AlertTriangle, BookOpen, Calendar, DollarSign, FolderOpen, GraduationCap, History, Megaphone, TrendingUp, UserCheck, Users, UserPlus, ClipboardList, Wallet } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import KitStat from "@/components/kit/KitStat";
-import HeroBanner from "@/components/kit/HeroBanner";
+import { Chip, LineChart, PageHeader, Progress, QuickActions, TableCard, change, td, th, todayLabel } from "@/components/kit/Dash";
+import { useQuery } from "@tanstack/react-query";
+import { rpc } from "@/lib/rpc";
 import { Panel, EmptyState } from "@/components/kit/Panel";
 import Donut from "@/components/kit/Donut";
 import BarChart from "@/components/kit/BarChart";
@@ -24,6 +26,13 @@ const ACTION_LABEL: Record<string, string> = {
   results_published: "published results", results_reopened: "reopened results",
 };
 
+interface Trends {
+  students_now: number; students_before: number; staff_now: number; staff_before: number;
+  revenue_month: number | null; revenue_last_month: number | null; revenue_total: number | null; outstanding: number | null;
+  payments_by_month: { month: string; amount: number }[] | null; attendance_by_month: { month: string; rate: number | null }[];
+}
+interface Coverage { class_id: string; class_name: string; subjects_covered: number; subjects_total: number; assessments_published: number; assessments_total: number; students: number }
+
 const AdminDashboard = () => {
   const { user, can } = useAuth();
   const schoolId = user!.schoolId;
@@ -32,6 +41,9 @@ const AdminDashboard = () => {
   const events = useEvents(schoolId);
   const enrollments = useEnrollments(schoolId);
   const fees = useFeeSummary(schoolId, can("fees.view"));
+  const trends = useQuery({ queryKey: ["school-trends", schoolId], queryFn: () => rpc<Trends>("school_dashboard_trends", { _school: schoolId }) });
+  const coverage = useQuery({ queryKey: ["class-coverage", schoolId], queryFn: () => rpc<Coverage[]>("class_coverage", { _school: schoolId }) });
+  const t = trends.data;
 
   if (overview.isError) {
     return (
@@ -52,56 +64,79 @@ const AdminDashboard = () => {
 
   return (
     <>
-      <HeroBanner
-        className="mb-5"
-        eyebrow={user!.schoolName}
-        title="School Admin Dashboard"
-        text={o?.current_year ? `${o.current_year}${o.current_term ? ` · ${o.current_term}` : ""}` : "Set up your academic year to start"}
-        icons={[School, TrendingUp, Sparkles]}
-      >
-        {[
-          { to: "/students", label: "Students" },
-          { to: "/user-management", label: "Staff & accounts", show: can("users.manage") },
-          { to: "/exams", label: "Results", show: can("grades.view") },
-          { to: "/fees", label: "Fees", show: can("fees.view") },
-          { to: "/calendar", label: "Communications" },
-        ].filter((l) => l.show !== false).map((l) => (
-          <Button key={l.to} asChild size="sm" variant="outline" className="bg-white/60 backdrop-blur transition-transform hover:-translate-y-0.5"><Link to={l.to}>{l.label}</Link></Button>
-        ))}
-      </HeroBanner>
+      <PageHeader title="Dashboard">
+        <Chip to="/fees">{o?.current_term ? `${o.current_term} · ${o.current_year ?? ""}` : o?.current_year ?? "No academic period yet"}</Chip>
+        <Chip>{todayLabel()}</Chip>
+      </PageHeader>
 
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {overview.isLoading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[108px]" />) : (
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        {overview.isLoading || trends.isLoading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[112px] rounded-xl" />) : (
           <>
-            <KitStat delay={0} icon={GraduationCap} label="Students" value={students} sub={`${o!.invited} invited, not yet signed in`} to="/students" />
-            <KitStat delay={0.06} icon={BookOpen} tone="success" label="Classes" value={o!.classes.length} sub="This academic year" to="/classes" />
-            <KitStat delay={0.12} icon={Users} tone="warning" label="Parents" value={o!.people.parent ?? 0} sub="Guardian accounts" to="/students" />
-            <KitStat delay={0.18} icon={Users} tone="info" label="Staff" value={staff} sub="Administrators and teachers" to={can("users.manage") ? "/user-management" : undefined} />
-          </>
-        )}
-      </div>
-
-      <div className="mb-4 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {overview.isLoading ? [0, 1, 2, 3].map((i) => <Skeleton key={i} className="h-[116px] rounded-2xl" />) : (
-          <>
-            <KitStat delay={0.24} icon={UserCheck} tone="success" label="Attendance Today" to={can("attendance.view") ? "/attendance" : undefined}
-              value={attTotal ? `${Math.round(((att!.present + att!.late) / attTotal) * 100)}%` : null} sub={attTotal ? `${att!.classes_marked} register${att!.classes_marked === 1 ? "" : "s"} taken` : "No registers taken today"} meter={attTotal ? ((att!.present + att!.late) / attTotal) * 100 : undefined} />
-            <KitStat delay={0.3} icon={ClipboardList} tone="info" label="Results Waiting" to={can("grades.view") ? "/exams" : undefined} value={o?.results_waiting ?? 0} sub="Submitted, waiting to be published" />
+            <KitStat delay={0} to="/students" icon={GraduationCap} label="Total Students" value={t ? t.students_now : students} trend={t ? change(t.students_now, t.students_before) : null} sub={`${o?.invited ?? 0} invited, not yet signed in`} />
+            <KitStat delay={0.06} to={can("users.manage") ? "/user-management" : undefined} icon={Users} tone="info" label="Total Staff" value={t ? t.staff_now : staff} trend={t ? change(t.staff_now, t.staff_before) : null} sub="Administrators and teachers" />
             {can("fees.view") ? (
               <>
-                <KitStat delay={0.36} icon={Wallet} tone="success" label="Fees Collected" to="/fees" value={fees.data ? money(fees.data.collected) : null}
-                  sub={fees.data ? `of ${money(fees.data.billed)} billed` : fees.isLoading ? "Loading…" : "Fees are not available"} meter={fees.data && fees.data.billed > 0 ? (fees.data.collected / fees.data.billed) * 100 : undefined} />
-                <KitStat delay={0.42} icon={DollarSign} tone={fees.data && fees.data.overdue_count > 0 ? "destructive" : "warning"} label="Fees Outstanding" to="/fees" value={fees.data ? money(fees.data.outstanding) : null}
-                  sub={fees.data ? `${fees.data.overdue_count} overdue invoice${fees.data.overdue_count === 1 ? "" : "s"}` : fees.isLoading ? "Loading…" : "Fees are not available"} />
+                <KitStat delay={0.12} to="/fees" icon={TrendingUp} tone="success" label="Total Revenue" value={t?.revenue_total != null ? money(t.revenue_total) : null}
+                  trend={t?.revenue_month != null && t.revenue_last_month != null ? change(t.revenue_month, t.revenue_last_month) : null} sub={t?.revenue_month != null ? `${money(t.revenue_month)} collected this month` : "Verified payments"} />
+                <KitStat delay={0.18} to="/fees" icon={Wallet} tone={fees.data && fees.data.overdue_count > 0 ? "destructive" : "warning"} label="Outstanding payments" value={t?.outstanding != null ? money(t.outstanding) : null}
+                  sub={fees.data ? `${fees.data.overdue_count} overdue invoice${fees.data.overdue_count === 1 ? "" : "s"}` : "Unpaid balances"} />
               </>
             ) : (
               <>
-                <KitStat delay={0.36} icon={UserPlus} tone="warning" label="New This Month" to="/students" value={newThisMonth} sub="Students placed in a class" />
-                <KitStat delay={0.42} icon={Calendar} tone="primary" label="Upcoming Events" to="/calendar" value={upcoming(events.data ?? []).length} sub="On the school calendar" />
+                <KitStat delay={0.12} to={can("attendance.view") ? "/attendance" : undefined} icon={UserCheck} tone="success" label="Attendance Today" value={attTotal ? `${Math.round(((att!.present + att!.late) / attTotal) * 100)}%` : null} sub={attTotal ? `${att!.classes_marked} registers taken` : "No registers taken today"} />
+                <KitStat delay={0.18} to={can("grades.view") ? "/exams" : undefined} icon={ClipboardList} tone="warning" label="Results Waiting" value={o?.results_waiting ?? 0} sub="Waiting to be published" />
               </>
             )}
           </>
         )}
+      </div>
+
+      <div className="mb-5">
+        <QuickActions text="Easily access important administrative tasks." actions={[
+          ...(can("users.manage") ? [{ to: "/user-management", label: "Add Student", icon: UserPlus, tone: "green" as const }] : []),
+          ...(can("communications.manage") ? [{ to: "/calendar", label: "Announcement", icon: Megaphone, tone: "blue" as const }] : []),
+          ...(can("users.manage") ? [{ to: "/user-management", label: "Manage Staff", icon: Users, tone: "purple" as const }] : []),
+          ...(can("attendance.view") ? [{ to: "/attendance", label: "Mark Attendance", icon: UserCheck, tone: "indigo" as const }] : []),
+          ...(can("payments.record") ? [{ to: "/fees", label: "Record Payment", icon: Wallet, tone: "orange" as const }] : []),
+          { to: "/resources", label: "Learning Resources", icon: FolderOpen, tone: "pink" as const },
+        ].slice(0, 5)} />
+      </div>
+
+      <div className="mb-5 grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <Panel title="Payments Collected" icon={Wallet} link={can("fees.view") ? { to: "/fees", label: "Open fees" } : undefined}>
+          <p className="-mt-3 mb-3 text-xs text-muted-foreground">Monthly fee payments, last six months</p>
+          {!can("fees.view") ? <EmptyState icon={Wallet} title="Finance figures are for the finance office" /> : !t?.payments_by_month || t.payments_by_month.every((m) => !Number(m.amount)) ? (
+            <EmptyState icon={Wallet} title="No payments yet" text="Recorded and verified fee payments appear here by month." />
+          ) : <BarChart height={170} bars={t.payments_by_month.map((m) => ({ label: m.month, values: [Number(m.amount)] }))} series={[{ name: "Collected", color: "hsl(var(--primary))" }]} format={(n) => money(n)} />}
+        </Panel>
+        <Panel title="Attendance Rate" icon={UserCheck} link={can("attendance.view") ? { to: "/attendance", label: "Open" } : undefined}>
+          <p className="-mt-3 mb-3 text-xs text-muted-foreground">Monthly average attendance (%)</p>
+          {!t || t.attendance_by_month.every((m) => m.rate === null) ? <EmptyState icon={UserCheck} title="No registers yet" text="Each month's rate appears once registers are taken." /> : (
+            <LineChart max={100} points={t.attendance_by_month.filter((m) => m.rate !== null).map((m) => ({ label: m.month, value: Number(m.rate) }))} format={(n) => `${Math.round(n)}%`} />
+          )}
+        </Panel>
+      </div>
+
+      <div className="mb-5">
+        <TableCard title="Class Coverage Breakdown" count={coverage.data?.length} subtitle="Subjects with a teacher, and how much assessment work has been published" action={<Link to="/classes" className="text-xs font-medium text-primary hover:underline">Manage classes</Link>}>
+          {coverage.isLoading ? <div className="p-5"><Skeleton className="h-24" /></div> : (coverage.data ?? []).length === 0 ? (
+            <div className="p-5"><EmptyState icon={BookOpen} title="No classes yet" action={{ to: "/classes", label: "Set up classes" }} /></div>
+          ) : (
+            <table className="w-full">
+              <thead><tr><th className={th}>Class</th><th className={th}>Subjects Covered</th><th className={th}>Students</th><th className={th}>Assessment Progress</th></tr></thead>
+              <tbody className="divide-y divide-border">
+                {coverage.data!.map((c) => (
+                  <tr key={c.class_id} className="transition-colors hover:bg-muted/40">
+                    <td className={`${td} font-medium`}><Link to="/classes" className="hover:text-primary">{c.class_name}</Link></td>
+                    <td className={td}>{c.subjects_covered}/{c.subjects_total}</td>
+                    <td className={td}>{c.students}</td>
+                    <td className={`${td} w-1/3`}>{Number(c.assessments_total) > 0 ? <Progress value={(Number(c.assessments_published) / Number(c.assessments_total)) * 100} label={`${c.class_name} assessments published`} /> : <span className="text-xs text-muted-foreground">No assessments yet</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </TableCard>
       </div>
 
       {o && students > 0 && (

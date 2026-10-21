@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { animate, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from "framer-motion";
-import { ArrowUpRight, LucideIcon } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Tone = "primary" | "success" | "warning" | "info" | "destructive";
@@ -22,11 +22,7 @@ const tints: Record<Tone, string> = {
   destructive: "border-destructive/20 bg-gradient-to-br from-destructive/10 via-card to-card",
 };
 
-const glow: Record<Tone, string> = {
-  primary: "bg-primary/20", success: "bg-success/20", warning: "bg-warning/25", info: "bg-info/20", destructive: "bg-destructive/20",
-};
-
-/** Counts a number up when it first appears. Text without a number (a dash, a name) is shown as it is. */
+/** Counts a number up when it first appears. Text without a number (a dash, a word) is shown as it is. */
 const CountUp = ({ value, reduced }: { value: string | number; reduced: boolean }) => {
   const text = String(value);
   const m = text.match(/^(\D*?)(\d[\d,]*(?:\.\d+)?)(.*)$/);
@@ -46,7 +42,7 @@ const CountUp = ({ value, reduced }: { value: string | number; reduced: boolean 
 };
 
 interface KitStatProps {
-  /** Soft coloured background. */
+  /** Soft coloured background instead of plain white. */
   tinted?: boolean;
   icon: LucideIcon;
   tone?: Tone;
@@ -54,6 +50,8 @@ interface KitStatProps {
   /** null means "no data yet": shown as a dash, never as a made-up number. */
   value: string | number | null;
   sub?: string;
+  /** Change against the previous period, in percent, worked out from real records. Omitted when there is nothing to compare. */
+  trend?: { pct: number; label?: string; goodWhenUp?: boolean } | null;
   /** Where the figure lives. The whole card links there. */
   to?: string;
   /** 0 to 100 */
@@ -62,61 +60,57 @@ interface KitStatProps {
   delay?: number;
 }
 
-/** A figure card: lifts and tilts toward the pointer, counts up, and opens the page where the figure comes from. */
-const KitStat = ({ icon: Icon, tone = "primary", label, value, sub, to, meter, tinted = true, delay = 0 }: KitStatProps) => {
+/** A figure card: label, small icon, the number, and how it moved. Lifts and leans slightly, and opens where the figure comes from. */
+const KitStat = ({ icon: Icon, tone = "primary", label, value, sub, trend, to, meter, tinted = false, delay = 0 }: KitStatProps) => {
   const reduced = !!useReducedMotion();
   const ref = useRef<HTMLDivElement>(null);
   const px = useMotionValue(0);
   const py = useMotionValue(0);
-  const sx = useSpring(px, { stiffness: 220, damping: 20 });
-  const sy = useSpring(py, { stiffness: 220, damping: 20 });
-  const rotateY = useTransform(sx, [-0.5, 0.5], [-7, 7]);
-  const rotateX = useTransform(sy, [-0.5, 0.5], [7, -7]);
-  const sheenX = useTransform(sx, [-0.5, 0.5], ["15%", "85%"]);
-
+  const rotateY = useTransform(useSpring(px, { stiffness: 200, damping: 20 }), [-0.5, 0.5], [-4, 4]);
+  const rotateX = useTransform(useSpring(py, { stiffness: 200, damping: 20 }), [-0.5, 0.5], [4, -4]);
   const move = (e: React.PointerEvent) => {
     if (reduced || e.pointerType === "touch" || !ref.current) return;
     const r = ref.current.getBoundingClientRect();
     px.set((e.clientX - r.left) / r.width - 0.5);
     py.set((e.clientY - r.top) / r.height - 0.5);
   };
-  const leave = () => { px.set(0); py.set(0); };
+  const up = trend ? trend.pct >= 0 : true;
+  const good = trend ? (trend.goodWhenUp === false ? !up : up) : true;
 
   const body = (
     <>
-      <span aria-hidden className={cn("pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full blur-2xl transition-opacity duration-300 group-hover:opacity-100", glow[tone], "opacity-60")} />
-      <div className="relative flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{label}</p>
-          <p className="mt-1 font-heading text-2xl font-bold text-card-foreground">{value === null ? "–" : <CountUp value={value} reduced={reduced} />}</p>
-        </div>
-        <motion.span style={{ translateZ: 30 }} whileHover={reduced ? undefined : { rotate: [0, -8, 8, 0], scale: 1.12 }} transition={{ duration: 0.5 }}
-          className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-sm ring-1 ring-white/40", tones[tone])}>
-          <Icon className="h-5 w-5" aria-hidden />
-        </motion.span>
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-sm text-muted-foreground">{label}</p>
+        <span className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6", tones[tone])}>
+          <Icon className="h-4 w-4" aria-hidden />
+        </span>
       </div>
+      <p className="mt-2 font-heading text-[1.65rem] font-semibold leading-tight text-card-foreground">{value === null ? "–" : <CountUp value={value} reduced={reduced} />}</p>
       {meter !== undefined && (
-        <div className="relative mt-3 h-1.5 overflow-hidden rounded-full bg-muted" role="presentation">
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted" role="presentation">
           <motion.div className="h-full rounded-full bg-primary" initial={{ width: 0 }} animate={{ width: `${Math.max(0, Math.min(100, meter))}%` }} transition={{ duration: 0.9, delay: delay + 0.2 }} />
         </div>
       )}
-      {sub && <p className="relative mt-2 text-xs text-muted-foreground">{sub}</p>}
-      {to && <ArrowUpRight aria-hidden className="absolute bottom-3 right-3 h-4 w-4 text-muted-foreground/0 transition-all duration-200 group-hover:translate-x-0.5 group-hover:-translate-y-0.5 group-hover:text-primary" />}
-      <motion.span aria-hidden className="pointer-events-none absolute inset-0 rounded-2xl opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-        style={{ background: "radial-gradient(240px circle at var(--sx) 0%, hsl(0 0% 100% / 0.35), transparent 60%)", ["--sx" as string]: sheenX }} />
+      {trend ? (
+        <p className="mt-1.5 flex items-center gap-1 text-xs">
+          <span className={cn("inline-flex items-center gap-0.5 font-medium", good ? "text-success" : "text-destructive")}>
+            {Math.abs(trend.pct).toFixed(1)}% {up ? <ArrowUpRight className="h-3 w-3" aria-hidden /> : <ArrowDownRight className="h-3 w-3" aria-hidden />}
+          </span>
+          <span className="text-muted-foreground">{trend.label ?? "vs last month"}</span>
+        </p>
+      ) : sub ? <p className="mt-1.5 text-xs text-muted-foreground">{sub}</p> : null}
+      {trend && sub && <p className="mt-0.5 text-[11px] text-muted-foreground">{sub}</p>}
     </>
   );
 
-  const cls = cn("group relative block overflow-hidden rounded-2xl border p-5 shadow-card transition-shadow duration-300 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
+  const cls = cn("group relative block h-full overflow-hidden rounded-xl border p-4 shadow-card transition-shadow duration-300 hover:shadow-elevated focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/60",
     tinted ? tints[tone] : "border-border bg-card");
 
   return (
-    <motion.div
-      ref={ref} onPointerMove={move} onPointerLeave={leave}
-      initial={reduced ? false : { opacity: 0, y: 18, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }} transition={{ duration: 0.45, delay, ease: "easeOut" }}
-      whileHover={reduced ? undefined : { y: -4 }}
-      style={reduced ? undefined : { rotateX, rotateY, transformPerspective: 900, transformStyle: "preserve-3d" }}
-    >
+    <motion.div ref={ref} onPointerMove={move} onPointerLeave={() => { px.set(0); py.set(0); }}
+      initial={reduced ? false : { opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4, delay, ease: "easeOut" }}
+      whileHover={reduced ? undefined : { y: -3 }}
+      style={reduced ? undefined : { rotateX, rotateY, transformPerspective: 900 }}>
       {to ? <Link to={to} aria-label={`${label}: ${value ?? "no data yet"}. Open`} className={cls}>{body}</Link> : <div className={cls}>{body}</div>}
     </motion.div>
   );

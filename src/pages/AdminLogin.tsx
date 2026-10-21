@@ -1,5 +1,5 @@
-import GlassLogin from "@/components/auth/GlassLogin";
+import Login from "@/pages/Login";
 
-const AdminLogin = () => <GlassLogin role="admin" />;
+const AdminLogin = () => <Login initialRole="admin" />;
 
 export default AdminLogin;
