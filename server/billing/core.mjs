@@ -8,7 +8,7 @@
 //   APP_URL               public address of the site, used for the Paystack return link
 //   BILLING_DEMO=on       allow the clearly-labelled demo checkout (development only; ignored in production)
 //   DATABASE_URL (or the Neon variables)  owner connection used to settle orders
-import { createHmac, createHash, timingSafeEqual } from 'node:crypto'
+import { createHmac, createHash, randomBytes, timingSafeEqual } from 'node:crypto'
 import pg from 'pg'
 
 const PAYSTACK = 'https://api.paystack.co'
@@ -303,3 +303,66 @@ export const publicSignup = (env, b) => callPublic(env,
   [b.plan, b.interval, b.school, b.admin, b.email, b.phone ?? null])
 export const publicStatus = (env, b) => callPublic(env, `SELECT public.billing_order_status($1, $2) AS r`, [b.reference, b.claim])
 export const publicClaim = async (env, b) => ({ token: await callPublic(env, `SELECT public.billing_claim_invite($1, $2) AS r`, [b.reference, b.claim]) })
+
+// ---------------------------------------------------------------------------------------------
+// Platform team: a signed-in Super Admin adds another Super Admin. The caller proves who they are
+// with their own sign-in token; the database (is_platform_admin) decides, never the browser.
+// ---------------------------------------------------------------------------------------------
+const NEON_DATA_API = 'https://ep-ancient-darkness-bagaak83.apirest.c-8.eu-central-1.aws.neon.tech/neondb/rest/v1'
+const NEON_AUTH = 'https://ep-ancient-darkness-bagaak83.neonauth.c-8.eu-central-1.aws.neon.tech/neondb/auth'
+const isLocalDb = (env) => env('VITE_DB_PROVIDER') === 'local'
+
+const callerRpc = async (env, authorization, fn) => {
+  const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
+  const res = await fetch(`${base}/rpc/${fn}`, {
+    method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: '{}',
+  })
+  if (!res.ok) return null
+  return res.json()
+}
+
+/** A strong one-time password: 16 characters, no look-alikes. */
+const makeTempPassword = () => {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
+  const bytes = randomBytes(16)
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('')
+}
+
+export const addPlatformAdmin = async (env, headers, { email, name }) => {
+  const authorization = headers.authorization
+  if (!authorization || (await callerRpc(env, authorization, 'is_platform_admin')) !== true) {
+    throw new HttpError(403, 'Only a signed-in Super Admin can add another Super Admin.')
+  }
+  const addr = typeof email === 'string' ? email.trim().toLowerCase() : ''
+  const full = typeof name === 'string' ? name.trim().slice(0, 100) : ''
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr) || addr.length > 200) throw new HttpError(400, 'Enter a valid email address.')
+  if (full.length < 2) throw new HttpError(400, 'Enter the new Super Admin\'s full name.')
+  const users = isLocalDb(env) ? "auth.users" : "neon_auth.\"user\""
+  const existing = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
+  const password = makeTempPassword()
+  let userId
+  if (isLocalDb(env)) {
+    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
+    userId = (await one(env, `SELECT auth_local.create_platform_admin($1, $2) AS id`, [addr, password])).id
+    await one(env, `UPDATE auth.users SET must_change_password = TRUE WHERE id = $1 RETURNING id`, [userId])
+  } else {
+    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
+    const res = await fetch(`${env('NEON_AUTH_URL') || NEON_AUTH}/sign-up/email`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', origin: appUrl(env, headers) },
+      body: JSON.stringify({ email: addr, password, name: full }),
+    })
+    if (!res.ok) throw new HttpError(502, 'The sign-in service could not create that login. Try again shortly.')
+    const row = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
+    if (!row) throw new HttpError(502, 'The login was created but could not be found. Try again.')
+    userId = row.id
+  }
+  // Recorded through the caller's own token so the database checks they are a Super Admin and notes who added this one.
+  const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
+  const reg = await fetch(`${base}/rpc/platform_admin_register`, {
+    method: 'POST', headers: { authorization, 'content-type': 'application/json' },
+    body: JSON.stringify({ _user: userId, _name: full }),
+  })
+  if (!reg.ok) throw new HttpError(409, 'The login was created but could not be made a Super Admin.')
+  return { email: addr, password, name: full }
+}

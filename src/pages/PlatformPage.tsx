@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, Building2, Copy, GraduationCap, HeartPulse, Loader2, Plus, School, ShieldCheck, Users } from "lucide-react";
+import { Link } from "react-router-dom";
+import { AlertTriangle, BadgeCheck, Building2, CalendarClock, Copy, CreditCard, GraduationCap, HeartPulse, Receipt, Loader2, Plus, School, ShieldCheck, Users } from "lucide-react";
 import { db } from "@/lib/db";
 import DashboardLayout from "@/components/dashboard/DashboardLayout";
 import KitStat from "@/components/kit/KitStat";
@@ -13,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
+import { money, useBillingOverview } from "@/hooks/useBilling";
 import { relative } from "@/hooks/useSchoolData";
 
 interface Overview {
@@ -86,6 +88,7 @@ const PlatformPage = () => {
   };
 
   const o = overview.data;
+  const bill = useBillingOverview().data;
   const err = overview.error || schools.error;
   const roleTotal = (o ? Object.values(o.people).reduce((a, b) => a + b, 0) : 0);
 
@@ -115,6 +118,34 @@ const PlatformPage = () => {
               </>
             )}
           </div>
+
+          {bill && (
+            <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <Panel title="Subscriptions" icon={CreditCard}>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                  {([["Active", bill.active], ["On trial", bill.trials], ["Past due", bill.past_due], ["Expired", bill.expired], ["Cancelled", bill.cancelled], ["Awaiting payment", bill.awaiting_payment]] as const).map(([k, v]) => (
+                    <div key={k} className="flex justify-between border-b border-border pb-1"><dt className="text-muted-foreground">{k}</dt><dd className="font-semibold">{v}</dd></div>
+                  ))}
+                </dl>
+                <Link to="/platform/subscriptions" className="mt-3 inline-block text-xs font-medium text-primary hover:underline">Open subscriptions</Link>
+              </Panel>
+              <Panel title="Revenue" icon={Receipt}>
+                {bill.revenue.length === 0 ? <p className="text-sm text-muted-foreground">No paid orders yet.</p> : (
+                  <ul className="space-y-1.5 text-sm">{bill.revenue.map((r) => <li key={r.currency} className="flex justify-between"><span className="text-muted-foreground">{r.orders} paid order{r.orders === 1 ? "" : "s"}</span><span className="font-semibold">{money(r.total_minor, r.currency)}</span></li>)}</ul>
+                )}
+                {bill.pending.length > 0 && <p className="mt-2 text-xs text-muted-foreground">Pending: {bill.pending.map((p) => money(p.total_minor, p.currency)).join(", ")}</p>}
+                <Link to="/platform/billing" className="mt-3 inline-block text-xs font-medium text-primary hover:underline">Open payments</Link>
+              </Panel>
+              <Panel title="Needs attention" icon={CalendarClock}>
+                <ul className="space-y-1.5 text-sm">
+                  {([["Expiring in 14 days", bill.expiring_soon, "/platform/renewals"], ["Expiring today", bill.expiring_today, "/platform/renewals"], ["Failed payments", bill.failed_payments, "/platform/billing"], ["Suspended schools", bill.suspended, "/platform/clients"]] as const).map(([k, v, to]) => (
+                    <li key={k} className="flex items-center justify-between"><Link to={to} className="text-muted-foreground hover:text-foreground">{k}</Link><span className={v > 0 ? "font-semibold text-warning" : "font-semibold"}>{v}</span></li>
+                  ))}
+                </ul>
+                {bill.expiring_soon + bill.expiring_today + bill.failed_payments + bill.suspended === 0 && <p className="mt-2 flex items-center gap-1 text-xs text-success"><BadgeCheck className="h-3.5 w-3.5" aria-hidden /> Nothing needs attention.</p>}
+              </Panel>
+            </div>
+          )}
 
           <div className="mb-6 grid grid-cols-1 gap-4 lg:grid-cols-3">
             <Panel title="New schools by month" icon={Building2} className="lg:col-span-2">

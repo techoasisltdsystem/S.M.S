@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, MEMBER_ROLE_LABEL } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
-import { changeMyPassword } from "@/lib/db";
+import { changeMyPassword, signIn } from "@/lib/db";
 import { rpc } from "@/lib/rpc";
 
 interface Details {
@@ -53,6 +53,52 @@ const PasswordForm = () => {
       {err && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
       <Button type="submit" disabled={busy || !f.current || !f.next}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Change password</Button>
     </form>
+  );
+};
+
+/** Super Admin only: their own name and the email they sign in with. The password is re-checked before the email changes. */
+const PlatformAccount = () => {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const me = useQuery({ queryKey: ["platform-me"], queryFn: () => rpc<{ user_id: string; email: string; full_name: string | null }[]>("platform_admin_me").then((r) => r[0]) });
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [pw, setPw] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { if (me.data) { setName(me.data.full_name ?? ""); setEmail(me.data.email); } }, [me.data]);
+  if (!me.data) return me.isError ? <ErrorBox message={errMsg(me.error)} onRetry={() => me.refetch()} /> : <LoadingRows rows={2} />;
+  const nameDirty = name.trim() !== (me.data.full_name ?? "");
+  const emailDirty = email.trim().toLowerCase() !== me.data.email.toLowerCase();
+  const saveName = async () => {
+    try { await rpc("platform_admin_set_my_name", { _name: name }); toast({ title: "Name saved" }); void qc.invalidateQueries({ queryKey: ["platform-me"] }); }
+    catch (e) { toast({ title: "Not saved", description: errMsg(e), variant: "destructive" }); }
+  };
+  const changeEmail = async (e: React.FormEvent) => {
+    e.preventDefault(); setErr(null); setBusy(true);
+    try {
+      try { await signIn(me.data!.email, pw); } catch { throw new Error("That password is not correct."); }
+      await rpc("platform_admin_change_my_email", { _email: email });
+      toast({ title: "Sign-in email changed", description: "Use " + email.trim().toLowerCase() + " next time you sign in." });
+      setPw(""); void qc.invalidateQueries({ queryKey: ["platform-me"] });
+    } catch (e2) { setErr(errMsg(e2)); }
+    finally { setBusy(false); }
+  };
+  return (
+    <div className="space-y-5">
+      <div className="flex items-end gap-2">
+        <div className="flex-1 space-y-1.5"><Label htmlFor="pa-me-name">Your name</Label><Input id="pa-me-name" value={name} maxLength={100} onChange={(e) => setName(e.target.value)} /></div>
+        <Button type="button" variant="outline" disabled={!nameDirty || name.trim().length < 2} onClick={saveName}>Save name</Button>
+      </div>
+      <form onSubmit={changeEmail} className="space-y-3" noValidate>
+        <div className="space-y-1.5"><Label htmlFor="pa-me-email">Sign-in email</Label><Input id="pa-me-email" type="email" autoComplete="off" value={email} onChange={(e) => setEmail(e.target.value)} /></div>
+        {emailDirty && (
+          <div className="space-y-1.5"><Label htmlFor="pa-me-pw">Current password (to confirm it is you)</Label><Input id="pa-me-pw" type="password" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} /></div>
+        )}
+        {err && <p role="alert" className="rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{err}</p>}
+        <Button type="submit" disabled={busy || !emailDirty || !pw || !/^[^@s]+@[^@s]+.[^@s]+$/.test(email.trim())}>{busy && <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />} Change sign-in email</Button>
+      </form>
+    </div>
   );
 };
 
@@ -137,10 +183,15 @@ const ProfilePage = () => {
         )}
 
         {isPlatform && (
+<>
           <Panel title="Platform administrator" icon={ShieldCheck}>
-            <p className="mb-4 text-sm text-muted-foreground">Signed in as {user?.email || "a platform administrator"}. Platform accounts have no school profile.</p>
+            <p className="mb-4 text-sm text-muted-foreground">Platform accounts have no school profile. Changing your password signs your other devices out.</p>
+            <PlatformAccount />
+          </Panel>
+          <Panel title="Change password" icon={KeyRound} className="mt-5">
             <PasswordForm />
           </Panel>
+</>
         )}
       </div>
     </DashboardLayout>

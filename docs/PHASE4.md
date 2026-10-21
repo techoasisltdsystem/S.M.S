@@ -109,3 +109,11 @@ Set these in `.env.local` (laptop) or the host's environment (never in the brows
 - Browser-checked: pricing (narrow viewport), full demo purchase, one-time sign-up link, billing history and receipt, School Admin refused at the Super Admin login, client list and detail, password reset end to end, expired school restored by a verified renewal.
 - Pricing and checkout were checked for horizontal overflow at phone, tablet and desktop widths (one tablet overflow found and fixed).
 - Not tested: real Paystack, real email, hosted-provider reset, and the Super Admin pages at tablet and desktop widths.
+
+## Platform console additions
+
+- **Super Admin team** (`/platform/admins`): any active Super Admin can add another. The server route `POST /api/billing/platform-admin` checks the caller through the database (`is_platform_admin`), creates the login (local: `auth_local.create_platform_admin`; hosted: Neon Auth sign-up), generates a 16-character temporary password shown once, and records the new admin through `platform_admin_register`. Admins can be switched off and restored (`platform_admin_set_disabled`); nobody can switch themselves off and the last active admin cannot be switched off. `is_platform_admin()` ignores switched-off admins.
+- **My account** (`/platform/profile`): name, sign-in email (password re-checked first, `platform_admin_change_my_email`) and password change.
+- **System health** (`/platform/health`): `platform_health()` counts plus the scheduled-check status.
+- **Platform overview** gained subscription, revenue and "needs attention" panels from `platform_billing_overview`.
+- Migration `20261030090000_platform_team.sql`. A new hosted admin has no forced password change (Neon Auth); the dialog tells the giver to ask them to change it on first sign-in.
