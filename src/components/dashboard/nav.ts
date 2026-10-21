@@ -20,37 +20,37 @@ export interface NavGroup {
 // a page that exists in App.tsx; unbuilt modules open an honest "not built yet" page.
 export const NAV: Record<UserRole, NavGroup[]> = {
   platform: [
-    { items: [{ label: "Platform overview", icon: LayoutDashboard, path: "/platform" }] },
+    { items: [{ label: "Platform overview", icon: LayoutDashboard, path: "/platform", permission: "clients.view" }] },
     {
       title: "Clients",
       items: [
-        { label: "Clients and schools", icon: Building2, path: "/platform/clients" },
-        { label: "Create and suspend", icon: School, path: "/platform/schools" },
-        { label: "Subscriptions", icon: CreditCard, path: "/platform/subscriptions" },
-        { label: "Renewals and expiry", icon: CalendarClock, path: "/platform/renewals" },
+        { label: "Clients and schools", icon: Building2, path: "/platform/clients", permission: "clients.view" },
+        { label: "Create and suspend", icon: School, path: "/platform/schools", permission: "clients.manage" },
+        { label: "Subscriptions", icon: CreditCard, path: "/platform/subscriptions", permission: "clients.view" },
+        { label: "Renewals and expiry", icon: CalendarClock, path: "/platform/renewals", permission: "clients.view" },
       ],
     },
     {
       title: "Billing",
       items: [
-        { label: "Pricing and packages", icon: Tags, path: "/platform/packages" },
-        { label: "Payments", icon: Receipt, path: "/platform/billing" },
+        { label: "Pricing and packages", icon: Tags, path: "/platform/packages", permission: "billing.view" },
+        { label: "Payments", icon: Receipt, path: "/platform/billing", permission: "billing.view" },
       ],
     },
     {
       title: "Oversight",
       items: [
-        { label: "Audit and security", icon: ShieldAlert, path: "/platform/audit" },
-        { label: "Administrative activity", icon: Activity, path: "/platform/activity" },
-        { label: "Support", icon: LifeBuoy, path: "/platform/support" },
-        { label: "Platform settings", icon: Settings, path: "/platform/settings" },
+        { label: "Audit and security", icon: ShieldAlert, path: "/platform/audit", permission: "audit.view" },
+        { label: "Administrative activity", icon: Activity, path: "/platform/activity", permission: "audit.view" },
+        { label: "Support", icon: LifeBuoy, path: "/platform/support", permission: "support.view" },
+        { label: "Platform settings", icon: Settings, path: "/platform/settings", permission: "billing.view" },
       ],
     },
     {
       title: "Administration",
       items: [
-        { label: "Super Admin team", icon: UserCog, path: "/platform/admins" },
-        { label: "System health", icon: HeartPulse, path: "/platform/health" },
+        { label: "Platform administrators", icon: UserCog, path: "/platform/admins", permission: "admins.manage" },
+        { label: "System health", icon: HeartPulse, path: "/platform/health", permission: "health.view" },
         { label: "My account", icon: KeyRound, path: "/platform/profile" },
       ],
     },

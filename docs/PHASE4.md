@@ -117,3 +117,13 @@ Set these in `.env.local` (laptop) or the host's environment (never in the brows
 - **System health** (`/platform/health`): `platform_health()` counts plus the scheduled-check status.
 - **Platform overview** gained subscription, revenue and "needs attention" panels from `platform_billing_overview`.
 - Migration `20261030090000_platform_team.sql`. A new hosted admin has no forced password change (Neon Auth); the dialog tells the giver to ask them to change it on first sign-in.
+
+## Platform roles and invitations (migration `20261030120000_platform_roles.sql`)
+
+- **Roles**: Super Admin (everything), Platform Admin, Billing Admin, Support Admin. Each admin row holds a role and an explicit permission list (`module.view` / `module.manage`: clients, billing, support, audit; plus `settings.manage`, `health.view`, `admins.manage`). Role presets are in `platform_role_preset()` and mirrored in `src/lib/platformRoles.ts`. Existing admins became Super Admins.
+- **Enforcement**: every platform database function checks its own permission (`platform_can` / `platform_require`); the migration rewrites the old "any platform admin" guard in each function. Routes and sidebar items follow the same permissions, but the database is what refuses direct calls.
+- **Anti-escalation**: nobody changes their own role, only a Super Admin makes or changes a Super Admin, others can grant only permissions they hold, and the last active Super Admin cannot be demoted or switched off.
+- **Invitations**: `/platform/admins` -> Invite. The server stores only the SHA-256 of a one-time 7-day link; the invitee sets their own password at `/platform-invite` (12+ characters). No password is generated, shown or emailed. If email is not configured the inviter is shown the one-time link instead. Resend rotates the link; revoke kills it.
+- **Password reset for another admin**: sends the provider's reset email; the Super Admin never sees a password.
+- Tests: `supabase/tests/platform_roles.sql` (21 checks).
+- Not built yet: per-action create/edit/suspend/approve/export permissions (only view/manage), invite-accept audit entries, login/session history, forced email verification on email change.

@@ -305,64 +305,87 @@ export const publicStatus = (env, b) => callPublic(env, `SELECT public.billing_o
 export const publicClaim = async (env, b) => ({ token: await callPublic(env, `SELECT public.billing_claim_invite($1, $2) AS r`, [b.reference, b.claim]) })
 
 // ---------------------------------------------------------------------------------------------
-// Platform team: a signed-in Super Admin adds another Super Admin. The caller proves who they are
-// with their own sign-in token; the database (is_platform_admin) decides, never the browser.
+// Platform team. A Super Admin invites another administrator by email. The invitee follows a one-time
+// link and chooses their own password; no password is ever generated, shown or emailed. The caller
+// proves who they are with their own sign-in token and the database checks their permission.
 // ---------------------------------------------------------------------------------------------
 const NEON_DATA_API = 'https://ep-ancient-darkness-bagaak83.apirest.c-8.eu-central-1.aws.neon.tech/neondb/rest/v1'
 const NEON_AUTH = 'https://ep-ancient-darkness-bagaak83.neonauth.c-8.eu-central-1.aws.neon.tech/neondb/auth'
 const isLocalDb = (env) => env('VITE_DB_PROVIDER') === 'local'
+const hashToken = (t) => createHash('sha256').update(t).digest('hex')
 
-const callerRpc = async (env, authorization, fn) => {
+/** Calls a database function as the signed-in caller, so the database applies that person's permissions. */
+const asCaller = async (env, authorization, fn, args = {}) => {
+  if (!authorization) throw new HttpError(401, 'Sign in first.')
   const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
-  const res = await fetch(`${base}/rpc/${fn}`, {
-    method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: '{}',
-  })
-  if (!res.ok) return null
-  return res.json()
+  const res = await fetch(`${base}/rpc/${fn}`, { method: 'POST', headers: { authorization, 'content-type': 'application/json' }, body: JSON.stringify(args) })
+  const body = await res.json().catch(() => null)
+  if (!res.ok) throw new HttpError(res.status === 401 || res.status === 403 || body?.code === '42501' ? 403 : 400, body?.message ?? 'The request was refused.')
+  return body
 }
 
-/** A strong one-time password: 16 characters, no look-alikes. */
-const makeTempPassword = () => {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  const bytes = randomBytes(16)
-  return Array.from(bytes, (b) => chars[b % chars.length]).join('')
+const inviteEmail = (env, headers, to, name, token) => {
+  const link = `${appUrl(env, headers)}/platform-invite?token=${token}`
+  return { link, send: () => sendMail(env, {
+    to, link, subject: 'You have been invited to the Tech Oasis platform console',
+    text: `Hello ${name},
+
+You have been invited to join the Tech Oasis platform console.
+
+Choose your own password here (the link works once and expires in 7 days):
+${link}
+
+If you did not expect this, ignore this email.`,
+  }) }
 }
 
-export const addPlatformAdmin = async (env, headers, { email, name }) => {
-  const authorization = headers.authorization
-  if (!authorization || (await callerRpc(env, authorization, 'is_platform_admin')) !== true) {
-    throw new HttpError(403, 'Only a signed-in Super Admin can add another Super Admin.')
+/** Create or resend an invitation, or revoke one. Returns the link only when email could not be sent. */
+export const platformInvite = async (env, headers, b) => {
+  const auth = headers.authorization
+  if (b.action === 'revoke') { await asCaller(env, auth, 'platform_invite_revoke', { _id: b.id }); return { ok: true } }
+  const token = randomBytes(32).toString('base64url')
+  let email, name
+  if (b.action === 'resend') {
+    const r = await asCaller(env, auth, 'platform_invite_rotate', { _id: b.id, _token_hash: hashToken(token) })
+    ;[{ email, full_name: name }] = r
+  } else {
+    email = String(b.email ?? '').trim().toLowerCase(); name = String(b.name ?? '').trim()
+    await asCaller(env, auth, 'platform_invite_create', { _email: email, _name: name, _role: b.role, _perms: Array.isArray(b.permissions) ? b.permissions : [], _token_hash: hashToken(token) })
   }
-  const addr = typeof email === 'string' ? email.trim().toLowerCase() : ''
-  const full = typeof name === 'string' ? name.trim().slice(0, 100) : ''
-  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr) || addr.length > 200) throw new HttpError(400, 'Enter a valid email address.')
-  if (full.length < 2) throw new HttpError(400, 'Enter the new Super Admin\'s full name.')
-  const users = isLocalDb(env) ? "auth.users" : "neon_auth.\"user\""
-  const existing = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
-  const password = makeTempPassword()
+  const mail = inviteEmail(env, headers, email, name, token)
+  try { await mail.send(); return { emailed: true, email } }
+  catch (e) { console.error('[platform-invite]', e.message); return { emailed: false, email, link: mail.link } }
+}
+
+/** What an invitation link is for (shown before the person sets a password). */
+export const platformInviteInfo = async (env, { token }) => {
+  if (typeof token !== 'string' || token.length < 20) throw new HttpError(400, 'This invitation link is not valid.')
+  const row = await one(env, `SELECT email, full_name, role FROM public.platform_invite_peek($1)`, [hashToken(token)])
+  if (!row) throw new HttpError(404, 'This invitation has expired or was already used. Ask for a new one.')
+  return { email: row.email, name: row.full_name, role: row.role }
+}
+
+/** The invitee sets a password; the server creates the login and attaches the invited role. */
+export const platformInviteAccept = async (env, headers, { token, password }) => {
+  if (typeof token !== 'string' || token.length < 20) throw new HttpError(400, 'This invitation link is not valid.')
+  if (typeof password !== 'string' || password.length < 12 || password.length > 200) throw new HttpError(400, 'Use a password of at least 12 characters.')
+  const hash = hashToken(token)
+  const inv = await one(env, `SELECT email, full_name FROM public.platform_invite_peek($1)`, [hash])
+  if (!inv) throw new HttpError(404, 'This invitation has expired or was already used. Ask for a new one.')
+  const users = isLocalDb(env) ? 'auth.users' : 'neon_auth."user"'
+  if (await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [inv.email])) throw new HttpError(409, 'That email already has a login.')
   let userId
   if (isLocalDb(env)) {
-    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
-    userId = (await one(env, `SELECT auth_local.create_platform_admin($1, $2) AS id`, [addr, password])).id
-    await one(env, `UPDATE auth.users SET must_change_password = TRUE WHERE id = $1 RETURNING id`, [userId])
+    userId = (await one(env, `INSERT INTO auth.users (email, encrypted_password, email_confirmed_at) VALUES ($1, crypt($2, gen_salt('bf', 10)), now()) RETURNING id`, [inv.email, password])).id
   } else {
-    if (existing) throw new HttpError(409, 'That email already has a login. Use a different email address.')
     const res = await fetch(`${env('NEON_AUTH_URL') || NEON_AUTH}/sign-up/email`, {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', origin: appUrl(env, headers) },
-      body: JSON.stringify({ email: addr, password, name: full }),
+      method: 'POST', headers: { 'content-type': 'application/json', origin: appUrl(env, headers) },
+      body: JSON.stringify({ email: inv.email, password, name: inv.full_name }),
     })
-    if (!res.ok) throw new HttpError(502, 'The sign-in service could not create that login. Try again shortly.')
-    const row = await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [addr])
-    if (!row) throw new HttpError(502, 'The login was created but could not be found. Try again.')
-    userId = row.id
+    if (!res.ok) throw new HttpError(502, 'The sign-in service could not create your login. Check the password and try again.')
+    userId = (await one(env, `SELECT id FROM ${users} WHERE lower(email) = $1`, [inv.email])).id
   }
-  // Recorded through the caller's own token so the database checks they are a Super Admin and notes who added this one.
-  const base = isLocalDb(env) ? 'http://127.0.0.1:3001' : (env('NEON_DATA_API_URL') || NEON_DATA_API)
-  const reg = await fetch(`${base}/rpc/platform_admin_register`, {
-    method: 'POST', headers: { authorization, 'content-type': 'application/json' },
-    body: JSON.stringify({ _user: userId, _name: full }),
-  })
-  if (!reg.ok) throw new HttpError(409, 'The login was created but could not be made a Super Admin.')
-  return { email: addr, password, name: full }
+  try { await one(env, `SELECT public.platform_invite_accept($1, $2)`, [hash, userId]) }
+  catch (e) { console.error('[platform-invite]', e.message); throw new HttpError(409, 'Your login was created but the invitation could not be completed. Ask for a new invitation.') }
+  return { ok: true, email: inv.email }
 }

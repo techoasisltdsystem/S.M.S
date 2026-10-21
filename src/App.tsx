@@ -34,6 +34,7 @@ import FeesPage from "./pages/FeesPage";
 import AuditMonitoringPage from "./pages/AuditMonitoringPage";
 import PlatformSubscriptionsPage from "./pages/PlatformSubscriptionsPage";
 import PlatformSupportPage from "./pages/PlatformSupportPage";
+import PlatformInvitePage from "./pages/PlatformInvitePage";
 import PlatformTeamPage from "./pages/PlatformTeamPage";
 import PlatformHealthPage from "./pages/PlatformHealthPage";
 import PlatformActivityPage from "./pages/PlatformActivityPage";
@@ -132,18 +133,18 @@ const AppRoutes = () => (
     <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
 
     {/* Tech Oasis platform console */}
-    <Route path="/platform" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
-    <Route path="/platform/schools" element={<ProtectedRoute platform><PlatformPage /></ProtectedRoute>} />
-    <Route path="/platform/clients" element={<ProtectedRoute platform><PlatformClientsPage /></ProtectedRoute>} />
-    <Route path="/platform/clients/:id" element={<ProtectedRoute platform><PlatformClientPage /></ProtectedRoute>} />
-    <Route path="/platform/billing" element={<ProtectedRoute platform><PlatformBillingPage /></ProtectedRoute>} />
-    <Route path="/platform/packages" element={<ProtectedRoute platform><PlatformPackagesPage view="packages" /></ProtectedRoute>} />
-    <Route path="/platform/settings" element={<ProtectedRoute platform><PlatformPackagesPage view="settings" /></ProtectedRoute>} />
-    <Route path="/platform/renewals" element={<ProtectedRoute platform><PlatformRenewalsPage /></ProtectedRoute>} />
-    <Route path="/platform/audit" element={<ProtectedRoute platform><AuditMonitoringPage /></ProtectedRoute>} />
-    <Route path="/platform/subscriptions" element={<ProtectedRoute platform><PlatformSubscriptionsPage /></ProtectedRoute>} />
-    <Route path="/platform/support" element={<ProtectedRoute platform><PlatformSupportPage /></ProtectedRoute>} />
-    <Route path="/platform/activity" element={<ProtectedRoute platform><PlatformActivityPage /></ProtectedRoute>} />
+    <Route path="/platform" element={<ProtectedRoute platform permission="clients.view"><PlatformPage /></ProtectedRoute>} />
+    <Route path="/platform/schools" element={<ProtectedRoute platform permission="clients.manage"><PlatformPage /></ProtectedRoute>} />
+    <Route path="/platform/clients" element={<ProtectedRoute platform permission="clients.view"><PlatformClientsPage /></ProtectedRoute>} />
+    <Route path="/platform/clients/:id" element={<ProtectedRoute platform permission="clients.view"><PlatformClientPage /></ProtectedRoute>} />
+    <Route path="/platform/billing" element={<ProtectedRoute platform permission="billing.view"><PlatformBillingPage /></ProtectedRoute>} />
+    <Route path="/platform/packages" element={<ProtectedRoute platform permission="billing.view"><PlatformPackagesPage view="packages" /></ProtectedRoute>} />
+    <Route path="/platform/settings" element={<ProtectedRoute platform permission="billing.view"><PlatformPackagesPage view="settings" /></ProtectedRoute>} />
+    <Route path="/platform/renewals" element={<ProtectedRoute platform permission="clients.view"><PlatformRenewalsPage /></ProtectedRoute>} />
+    <Route path="/platform/audit" element={<ProtectedRoute platform permission="audit.view"><AuditMonitoringPage /></ProtectedRoute>} />
+    <Route path="/platform/subscriptions" element={<ProtectedRoute platform permission="clients.view"><PlatformSubscriptionsPage /></ProtectedRoute>} />
+    <Route path="/platform/support" element={<ProtectedRoute platform permission="support.view"><PlatformSupportPage /></ProtectedRoute>} />
+    <Route path="/platform/activity" element={<ProtectedRoute platform permission="audit.view"><PlatformActivityPage /></ProtectedRoute>} />
     <Route path="/subscription" element={<ProtectedRoute schoolAdmin><SchoolSupportPage view="subscription" /></ProtectedRoute>} />
     <Route path="/support" element={<ProtectedRoute permission="staff.manage"><SchoolSupportPage view="support" /></ProtectedRoute>} />
 
@@ -155,8 +156,9 @@ const AppRoutes = () => (
     <Route path="/settings" element={<ProtectedRoute permission="school.settings.manage"><AdminSettingsPage /></ProtectedRoute>} />
     <Route path="/audit-logs" element={<ProtectedRoute permission="audit.view"><AuditLogsPage /></ProtectedRoute>} />
     <Route path="/profile" element={<ProtectedRoute><ProfilePage /></ProtectedRoute>} />
-    <Route path="/platform/admins" element={<ProtectedRoute platform><PlatformTeamPage /></ProtectedRoute>} />
-    <Route path="/platform/health" element={<ProtectedRoute platform><PlatformHealthPage /></ProtectedRoute>} />
+    <Route path="/platform-invite" element={<PlatformInvitePage />} />
+    <Route path="/platform/admins" element={<ProtectedRoute platform permission="admins.manage"><PlatformTeamPage /></ProtectedRoute>} />
+    <Route path="/platform/health" element={<ProtectedRoute platform permission="health.view"><PlatformHealthPage /></ProtectedRoute>} />
     <Route path="/platform/profile" element={<ProtectedRoute platform><ProfilePage /></ProtectedRoute>} />
     <Route path="/messages" element={<ProtectedRoute><MessagesPage /></ProtectedRoute>} />
     <Route path="/assignments" element={<ProtectedRoute><AssignmentsPage /></ProtectedRoute>} />
