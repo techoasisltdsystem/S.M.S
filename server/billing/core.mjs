@@ -1,4 +1,4 @@
-// Billing backend: talks to Paystack and the database. Runs as Vercel functions (api/billing/*)
+// Billing backend: talks to Paystack and the database. Runs as one Vercel function (api/billing/[action].mjs)
 // and, on a laptop, inside the Vite dev server. The browser never sends an amount, a status, or a
 // secret here: it sends a payment reference, and everything else is read from the database or from
 // Paystack itself.
